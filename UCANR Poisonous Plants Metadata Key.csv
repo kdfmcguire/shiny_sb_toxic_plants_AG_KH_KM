@@ -1,0 +1,38 @@
+Column,Code,Meaning
+Toxic Part,AG,aboveground parts
+Toxic Part,FL,flower
+Toxic Part,FR,fruit
+Toxic Part,G,green parts
+Toxic Part,LF,leaf
+Toxic Part,SD,seed
+Toxic Part,SP,sap
+Toxic Part,ST,stem
+Toxic Part,UP,underground parts
+Toxic Part,WP,whole plant
+Toxins,AG,alkaloid
+Toxins,CARD,cardiac glycoside
+Toxins,CG,cyanogenic glycoside
+Toxins,COL,colchicine
+Toxins,CT,cardiotoxin
+Toxins,FU,furocoumarin
+Toxins,G,glycoside
+Toxins,M,multiple agents
+Toxins,NAR,narcotic
+Toxins,N,nitrate
+Toxins,O,oil
+Toxins,OX,oxalate
+Toxins,PH,phorbol
+Toxins,P,proteins or amino acids
+Toxins,R,resin
+Toxins,RS,ricin
+Toxins,S,saponin
+Toxins,UNK,unknown
+Effect,BL,blood
+Effect,CAR,carcinogen
+Effect,CV,cardiovascular
+Effect,ETS,"cell respiration, electron transport system"
+Effect,GI,gastrointestinal
+Effect,LV,liver
+Effect,NS,nervous system
+Effect,RP,respiratory paralysis
+Effect,SK,skin irritation
