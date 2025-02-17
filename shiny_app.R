@@ -20,24 +20,29 @@ sittp_theme <- bs_theme(bootswatch = "cerulean") |>
   bs_theme_update(bg = "#FFFFFC", fg = "#576B47", 
                   primary = "#353E3D", secondary = "#DFFFC7", success = "#00AFE6", 
                   info = "#244C24", base_font = font_google("Signika"), heading_font = font_google("Crete Round"), 
-   
-                                 font_scale = NULL, preset = "cerulean")
+                  
+                  font_scale = NULL, preset = "cerulean")
 
 ##########################################################################################
 
 #DATA
+#extract input options for widgets
+poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
 
-poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv")) |>
-  filter(Column =="Toxins")
+toxin_type <- poison_codes |>
+  filter(Column =="Toxins") |>
+  pull(Meaning)
 
-toxin_type <- poison_codes$Meaning
+toxic_part <- poison_codes |>
+  filter(Column =="Toxic Part") |>
+  pull(Meaning)
 
 ##########################################################################################
 
 ui <- fluidPage(
-    theme = sittp_theme,
-    
-    page_navbar(
+  theme = sittp_theme,
+  
+  page_navbar(
     title = "Should I touch that plant?",
     inverse = TRUE,
     nav_panel(title = "Overview",     # overview tab
@@ -119,39 +124,55 @@ ui <- fluidPage(
     #             mainPanel("Title - Count over Time",
     #                       plotOutput(outputId = "")) # add later
     #           )),
-    nav_panel(title = "Game", p("Third page content.")),
-    nav_spacer()
+    nav_panel(title = "Game", p("Put your plant intuition to the test!"),
+              layout_sidebar(
+                sidebarPanel(
+                  selectInput("select_game", 
+                              label = "Which part of the plant is safe to touch?", 
+                              choices = toxic_part, 
+                              selected = 1),
+                  actionButton("guess_game", label = "Guess",icon = icon("seedling")),
+                  actionButton("new_game", label = "Play Again",icon = icon("leaf"))
+                ),
+                
+                mainPanel( 
+                  textOutput("select_game"),
+                  # placeholder image
+                  img(src = "https://www.calflora.org/app/up/entry/245/73766.jpg", height = "300px", width = "300px")
+                )
+              ))
   )
 )
-  
 
 ##########################################################################################
 
 
 server <- function(input, output) {
-    
+  
   # Display selected toxin(s)
   output$selected_toxin <- renderText({
     paste("You selected:", paste(input$toxin_type, collapse = ", "))
   })
-    
-  # Example placeholder map (you can replace with an actual map later)
+  
+  # Placeholder map
   output$map_output <- renderPlot({
     plot(x=1:10,y=1:10,main = "Santa Barbara County Map")
   })
-    
+  
   output$selected_elevation <- renderText({
     paste("You selected:", paste(input$elevation_ft, collapse = ", "))
   })
-    
+  
   output$elevation_plot_output <- renderPlot({
     plot(x=1:10,y=1:10,main = "Plants by Elevation")
   })
-    
+  
+  output$select_game <- renderText({
+    paste("You selected:", paste(input$select_game, collapse = ", "))
+  })
+  
 }
 
 ##########################################################################################
 
 shinyApp(ui = ui, server = server)
-
-
