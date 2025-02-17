@@ -55,8 +55,8 @@ ui <- fluidPage(
                 accordion_panel(
                   icon = bs_icon("info-square"),
                   title = "Background Information",
-                  "text goes here"
-                ),
+                  HTML("We’ve all been there – wandering through a flowering meadow, stumbling upon an unfamiliar plant, and wondering, “Hmm… should I touch that plant?” Like most people, we love plants, but not all of them are safe to touch. We created this Shiny app to explore the distribution and characteristics of dermally toxic plants in Santa Barbara County. We hope it helps you learn something new, or at least reminds you to touch with caution.<br><br>Happy plant hunting!<br>– Abbey, Karlie, & Kylie")
+                  ),
                 accordion_panel(
                   icon = bs_icon("clipboard-data"),
                   title = "Data Citations",
