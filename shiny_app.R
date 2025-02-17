@@ -108,22 +108,22 @@ ui <- fluidPage(
                   plotOutput("elevation_plot_output")  
                 )
               )),
-    # nav_panel(title = "Time Series", 
-    #           layout_sidebar(
-    #             sidebarPanel("Native Status",
-    #                          radioButtons(inputId = "Native Status", # R variable name
-    #                                       label = "Native Status", 
-    #                                       choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
-    # 
-    #                          checkboxGroupInput(inputId = "Lifeform", 
-    #                                             label = "Lifeform Type", 
-    #                                             choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
-    #                                                     
-    #                          ),
-    #             
-    #             mainPanel("Title - Count over Time",
-    #                       plotOutput(outputId = "")) # add later
-    #           )),
+     nav_panel(title = "Time Series", 
+               layout_sidebar(
+                 sidebarPanel("Native Status",
+                              radioButtons(inputId = "Native Status", # R variable name
+                                           label = "Native Status", 
+                                           choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
+     
+                              checkboxGroupInput(inputId = "Lifeform", 
+                                                 label = "Lifeform Type", 
+                                                 choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
+                                                         
+                              ),
+                 
+                 mainPanel("Title - Count over Time",
+                           plotOutput(outputId = "time_plot_output")) # add later
+               )),
     nav_panel(title = "Game", p("Put your plant intuition to the test!"),
               layout_sidebar(
                 sidebarPanel(
@@ -183,7 +183,13 @@ server <- function(input, output) {
   output$guess_message <- renderText({
     guess_message()  # outputs message to user
   })
+  
+  
   ################################################
+  
+  output$time_plot_output <- renderPlot({
+    plot(x=1:10,y=1:10,main = "Plants over time")
+  })
   
 }
 
