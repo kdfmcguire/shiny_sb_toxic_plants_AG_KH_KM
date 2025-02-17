@@ -138,7 +138,8 @@ ui <- fluidPage(
                 mainPanel( 
                   textOutput("select_game"),
                   # placeholder image
-                  img(src = "https://www.calflora.org/app/up/entry/245/73766.jpg", height = "300px", width = "300px")
+                  img(src = "https://www.calflora.org/app/up/entry/245/73766.jpg", height = "300px", width = "300px"),
+                  textOutput("guess_message")
                 )
               ))
   )
@@ -170,6 +171,19 @@ server <- function(input, output) {
   output$select_game <- renderText({
     paste("You selected:", paste(input$select_game, collapse = ", "))
   })
+  
+  #when guess is made
+  ################################################
+  guess_message <- reactiveVal("") # initialize empty string
+  
+  observeEvent(input$guess_game, {
+    guess_message("Oh no! You got a rash and your son was eaten by wolves ):") # populates string when clicked
+  })
+  
+  output$guess_message <- renderText({
+    guess_message()  # outputs message to user
+  })
+  ################################################
   
 }
 
