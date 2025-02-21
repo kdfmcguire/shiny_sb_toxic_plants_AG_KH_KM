@@ -50,7 +50,7 @@ ui <- fluidPage(
                 accordion_panel(
                   icon = bs_icon("window-sidebar"),
                   title = "App Overview",
-                  "This app allows the user to explore the dermally toxic plants of Santa Barbara County"
+                  "This app allows the user to explore the characteristics and distribution of dermally toxic plants in Santa Barbara County."
                 ),
                 accordion_panel(
                   icon = bs_icon("info-square"),
