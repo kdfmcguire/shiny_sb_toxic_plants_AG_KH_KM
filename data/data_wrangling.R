@@ -83,7 +83,7 @@ write_csv(plant_char3, here("data","sb_obs_w_characteristics_toxins.csv"))
 
 ############################################
 
-#ADDING TOXINS INFO TO OBSERVATIONS
+#ADDING TOXINS INFO TO CHARACTERISTICS
 
 #remove weird question mark character in observations data
 char$Taxon <- str_replace_all(char$Taxon, "�", "")
