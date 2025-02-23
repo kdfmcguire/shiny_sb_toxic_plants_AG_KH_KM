@@ -159,10 +159,6 @@ toxin_type <- poison_codes |>
   filter(Column =="Toxins") |>
   pull(Meaning)
 
-toxic_part <- poison_codes |>
-  filter(Column =="Toxic Part") |>
-  pull(Meaning)
-
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv")) |>
    filter(Column=="Toxic Part")
 
@@ -175,6 +171,8 @@ poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv")
      toxic_part2 = Meaning.y
    ) |>
    select(plant_name,image_url,toxic_part1,toxic_part2)
+ 
+ toxic_part <-  unique(c(game_images$toxic_part1, game_images$toxic_part2))
 
 ##########################################################################################
 
@@ -311,33 +309,69 @@ server <- function(input, output) {
     paste("You selected:", paste(input$select_game, collapse = ", "))
   })
   
-  #when guess is made
-  ################################################
-  guess_message <- reactiveVal("") # initialize empty string
-  
-  observeEvent(input$guess_game, {
-    guess_message("Oh no! You got a rash and your son was eaten by wolves ):") # populates string when clicked
-  })
-  
-  output$guess_message <- renderText({
-    guess_message()  # outputs message to user
-  })
-  ################################################
-  
-  #display new image
+  #display images and process guesses
   ################################################
   current_plant <- reactiveVal(NULL)
+  guess_message <- reactiveVal("") # initialize empty string
+  
+  # sets first image when user clicks on tab
+  observe({
+    if (is.null(current_plant())) {
+      new_plant <- game_images[sample(nrow(game_images), 1), ]
+      current_plant(new_plant)
+    }
+  })
   
   observeEvent(input$new_game, {
     # select random new plant
     new_plant <- game_images[sample(nrow(game_images), 1), ]
     current_plant(new_plant)
+    guess_message("")
   })
   
   output$display_image <- renderUI({
-    img(src = current_plant()$image_url, height = "300px")
+    img(src = current_plant()$image_url, height = "400px")
   })
-  ################################################
+  
+  # sets response message
+  observeEvent(input$guess_game, {
+    if (input$guess_game==current_plant()$toxic_part1
+        || (!is.na(current_plant()$toxic_part2) &&
+            input$guess_game==current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You got a rash ):"))  
+    } else if (current_plant()$toxic_part1=="whole plant") { ## need to add 'none' option
+      guess_message("Oh no! You got a rash and your son was eaten by wolves ):")
+    } else {
+      guess_message("Phew! You touched a safe part of the plant and had a magical moment with nature (:")
+    }
+  })
+  
+  output$guess_message <- renderText({
+    guess_message()  # outputs message to user
+  })
+  
+  # ################################################
+  # #when guess is made
+  # ################################################
+  # guess_message <- reactiveVal("") # initialize empty string
+  # 
+  # # sets response message
+  # observeEvent(input$guess_game, {
+  #   if (input$guess_game==new_plant()$toxic_part1
+  #       || (!is.null(new_plant()$toxic_part2) &&
+  #           input$guess_game==new_plant()$toxic_part2)) {
+  #     guess_message(paste("Oh no! You got a rash ):"))  
+  #   } else if (new_plant()$toxic_part1=="whole plant") {
+  #     guess_message("Oh no! You got a rash and your son was eaten by wolves ):")
+  #   } else {
+  #     guess_message("Phew! You touched a safe part of the plant and had a magical moment with nature (:")
+  #   }
+  # })
+  # 
+  # output$guess_message <- renderText({
+  #   guess_message()  # outputs message to user
+  # })
+  # ################################################
   
   output$time_plot_output <- renderPlot({
     plot(x=1:10,y=1:10,main = "Plants over time")
