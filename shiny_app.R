@@ -16,6 +16,8 @@ library(bsicons)
 
 ##########################################################################################
 
+#THEME
+
 sittp_theme <- bs_theme(bootswatch = "cerulean") |>
   bs_theme_update(bg = "#FFFFFC", fg = "#576B47", 
                   primary = "#353E3D", secondary = "#DFFFC7", success = "#00AFE6", 
@@ -26,6 +28,7 @@ sittp_theme <- bs_theme(bootswatch = "cerulean") |>
 ##########################################################################################
 
 #DATA
+
 #extract input options for widgets
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
 
@@ -39,12 +42,16 @@ toxic_part <- poison_codes |>
 
 ##########################################################################################
 
+#USER INTERFACE
+
 ui <- fluidPage(
   theme = sittp_theme,
-  
   page_navbar(
     title = "Should I touch that plant?",
     inverse = TRUE,
+    
+    ##############  INFO PAGE  ##############
+    
     nav_panel(title = "Overview",     # overview tab
               accordion(              # creating an accordion format for the overview tab
                 accordion_panel(
@@ -69,29 +76,35 @@ ui <- fluidPage(
                   Plant Observations and Characteristics:<br>
                   Calflora: Information on California plants for education, research and conservation.
                   [web application]. 2019. Berkeley, California: The Calflora Database [a non-profit organization].
-                  Available: https://www.calflora.org/ (Accessed: Jan, 30 2025)."
+                  Available: https://www.calflora.org/ (Accessed: Jan, 30 2025).")
                   )
                 )
-              )
-    ),
-    nav_panel(title = "SB County Map", 
-              layout_sidebar(
+              ),
+    
+    ##############  MAP  ##############
+    
+    nav_panel(title = "Plant Distribution Map", 
+              titlePanel("Plant Distribution Map"),
+              sidebarLayout(
                 sidebarPanel(
                   checkboxGroupInput(
                     inputId = 'toxin_type',
                     label = "Choose toxin type",
                     choices = toxin_type
-                  )
-                ),
-                
-                mainPanel( 
+                    )
+                  ),
+                mainPanel(
                   textOutput("selected_toxin"),
-                  plotOutput("map_output")  
-                ))
-    ),
+                  leafletOutput(outputId = "map_output")
+                  )
+                )
+              ),
+    
+    ##############  ELEVATION PLOT  ##############
     
     nav_panel(title = "Elevation",
-              layout_sidebar( # confirm that this is the right function
+              titlePanel("Elevation"),
+              sidebarLayout(
                 sidebarPanel(
                   sliderInput(
                     inputId = 'elevation_ft',
@@ -100,32 +113,39 @@ ui <- fluidPage(
                     max=7000,
                     value=c(0,7000),
                     step=100
-                  )
-                ),
-                
+                    )
+                  ),
                 mainPanel( 
                   textOutput("selected_elevation"),
-                  plotOutput("elevation_plot_output")  
+                  plotOutput("elevation_plot_output")
+                  )
                 )
-              )),
-     nav_panel(title = "Time Series", 
-               layout_sidebar(
-                 sidebarPanel("Native Status",
-                              radioButtons(inputId = "Native Status", # R variable name
-                                           label = "Native Status", 
-                                           choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
-     
-                              checkboxGroupInput(inputId = "Lifeform", 
-                                                 label = "Lifeform Type", 
-                                                 choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
+              ),
+    
+    ##############  TIME SERIES  ##############
+    
+    nav_panel(title = "Time Series", 
+              titlePanel("Time Series"),
+              sidebarLayout(
+                sidebarPanel("Native Status",
+                            radioButtons(inputId = "Native Status", # R variable name
+                                         label = "Native Status", 
+                                         choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
+                            checkboxGroupInput(inputId = "Lifeform",
+                                               label = "Lifeform Type",
+                                               choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
                                                          
                               ),
-                 
                  mainPanel("Title - Count over Time",
                            plotOutput(outputId = "time_plot_output")) # add later
-               )),
+               )
+              ),
+    
+    ##############  GAME  ##############
+    
     nav_panel(title = "Game", p("Put your plant intuition to the test!"),
-              layout_sidebar(
+              titlePanel("Time Series"),
+              sidebarLayout(
                 sidebarPanel(
                   selectInput("select_game", 
                               label = "Which part of the plant is safe to touch?", 
@@ -134,19 +154,20 @@ ui <- fluidPage(
                   actionButton("guess_game", label = "Guess",icon = icon("seedling")),
                   actionButton("new_game", label = "Play Again",icon = icon("leaf"))
                 ),
-                
                 mainPanel( 
                   textOutput("select_game"),
                   # placeholder image
                   img(src = "https://www.calflora.org/app/up/entry/245/73766.jpg", height = "300px", width = "300px"),
                   textOutput("guess_message")
+                  )
                 )
-              ))
-  )
+              )
+    )
 )
 
 ##########################################################################################
 
+#SERVER
 
 server <- function(input, output) {
   
@@ -156,9 +177,11 @@ server <- function(input, output) {
   })
   
   # Placeholder map
-  output$map_output <- renderPlot({
-    plot(x=1:10,y=1:10,main = "Santa Barbara County Map")
-  })
+  output$map_output <- renderLeaflet({
+    leaflet() |>
+      addTiles() |>
+      addRasterImage(int_ratio_raster_flip, colors="YlOrRd", opacity = 0.7) |> #add opacity slider?
+      setView(lng = -120.2, lat = 34.5, zoom = 8)   })
   
   output$selected_elevation <- renderText({
     paste("You selected:", paste(input$elevation_ft, collapse = ", "))
