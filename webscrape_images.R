@@ -172,7 +172,9 @@ poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv")
    ) |>
    select(plant_name,image_url,toxic_part1,toxic_part2)
  
- toxic_part <-  unique(c(game_images$toxic_part1, game_images$toxic_part2))
+toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2)))
+toxic_part <- append(toxic_part, "none")
+toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 
 ##########################################################################################
 
@@ -267,14 +269,13 @@ ui <- fluidPage(
                   selectInput("select_game", 
                               label = "Which part of the plant is safe to touch?", 
                               choices = toxic_part, 
-                              selected = 1),
+                              selected = "none"),
                   actionButton("guess_game", label = "Guess",icon = icon("seedling")),
                   actionButton("new_game", label = "Play Again",icon = icon("leaf"))
                 ),
                 
                 mainPanel( 
                   textOutput("select_game"),
-                  # placeholder image
                   uiOutput("display_image"),
                   textOutput("guess_message"),
                 )
@@ -335,14 +336,31 @@ server <- function(input, output) {
   
   # sets response message
   observeEvent(input$guess_game, {
-    if (input$guess_game==current_plant()$toxic_part1
+    # whole plant is toxic, user does not choose 'none'
+    if (current_plant()$toxic_part1 == "whole plant"
+        && input$select_game != 'none') {
+      guess_message(paste("Oh no, you got a rash! All parts of ",current_plant()$plant_name," are toxic."))
+    } 
+    # whole plant is toxic, user does chooses 'none'
+    else if (current_plant()$toxic_part1 == "whole plant") {
+      guess_message(paste("Phew! All parts of ",current_plant()$plant_name," are toxic. You safely admired from afar."))
+    } # user chooses 'none', 1 toxic part
+    else if (input$select_game=="none" && is.na(current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You played it safe by not touching ",current_plant()$plant_name,". Only the ",current_plant()$toxic_part1, " is toxic. You missed out on a magical moment with nature ):"))
+    } # user chooses 'none', 2 toxic parts
+    else if (input$select_game=="none" && !is.na(current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You played it safe by not touching ",current_plant()$plant_name,". Only the ",current_plant()$toxic_part1," and ",current_plant()$toxic_part2, " are toxic. You missed out on a magical moment with nature ):"))
+    }
+    else if (input$select_game==current_plant()$toxic_part1 && is.na(current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You touched ",current_plant()$plant_name," and got a rash. The ",current_plant()$toxic_part1," is toxic."))
+    }
+    else if (input$select_game==current_plant()$toxic_part1
         || (!is.na(current_plant()$toxic_part2) &&
-            input$guess_game==current_plant()$toxic_part2)) {
-      guess_message(paste("Oh no! You got a rash ):"))  
-    } else if (current_plant()$toxic_part1=="whole plant") { ## need to add 'none' option
-      guess_message("Oh no! You got a rash and your son was eaten by wolves ):")
-    } else {
-      guess_message("Phew! You touched a safe part of the plant and had a magical moment with nature (:")
+            input$select_game==current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You touched ",current_plant()$plant_name," and got a rash. The ",current_plant()$toxic_part1, " and ",current_plant()$toxic_part2, "are toxic.")) 
+    } 
+    else {
+      guess_message(paste("Phew! You touched a safe part of ",current_plant()$plant_name," and had a magical moment with nature (:"))
     }
   })
   
