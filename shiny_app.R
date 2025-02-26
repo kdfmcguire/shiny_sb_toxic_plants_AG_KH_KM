@@ -62,7 +62,14 @@ ui <- fluidPage(
                 accordion_panel(
                   icon = bs_icon("info-square"),
                   title = "Background Information",
-                  HTML("We’ve all been there – wandering through a flowering meadow, stumbling upon an unfamiliar plant, and wondering, “Hmm… should I touch that plant?” Like most people, we love plants, but not all of them are safe to touch. We created this Shiny app to explore the distribution and characteristics of dermally toxic plants in Santa Barbara County. We hope it helps you learn something new, or at least reminds you to touch with caution.<br><br>Happy plant hunting!<br>– Abbey, Karlie, & Kylie")
+                  HTML("We’ve all been there – wandering through a flowering meadow, stumbling
+                  upon an unfamiliar plant, and wondering, “Hmm… should I touch that plant?”
+                  Like most people, we love plants, but not all of them are safe to touch.
+                  We created this Shiny app to explore the distribution and characteristics
+                  of dermally toxic plants in Santa Barbara County. We hope it helps you
+                  learn something new, or at least reminds you to touch with caution.
+                  <br><br>Happy plant hunting!
+                       <br>– Abbey, Karlie, & Kylie")
                   ),
                 accordion_panel(
                   icon = bs_icon("clipboard-data"),
@@ -127,7 +134,7 @@ ui <- fluidPage(
     nav_panel(title = "Time Series", 
               titlePanel("Time Series"),
               sidebarLayout(
-                sidebarPanel("Native Status",
+                sidebarPanel(
                             radioButtons(inputId = "Native Status", # R variable name
                                          label = "Native Status", 
                                          choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
@@ -144,7 +151,7 @@ ui <- fluidPage(
     ##############  GAME  ##############
     
     nav_panel(title = "Game", p("Put your plant intuition to the test!"),
-              titlePanel("Time Series"),
+              titlePanel("Game"),
               sidebarLayout(
                 sidebarPanel(
                   selectInput("select_game", 
@@ -170,19 +177,53 @@ ui <- fluidPage(
 #SERVER
 
 server <- function(input, output) {
+
+  ##############  MAP  ##############
   
-  # Display selected toxin(s)
+  ## Display selected toxin(s)
   output$selected_toxin <- renderText({
     paste("You selected:", paste(input$toxin_type, collapse = ", "))
   })
   
-  # Placeholder map
-  output$map_output <- renderLeaflet({
+  ### Use selected toxins to generate intensity ratio raster
+  
+  #### find common bandwidth- mean of default bandwidths obtained when using density()
+  #### to estimate the intensity of toxic and nontoxic plants separately.
+  bw_toxic <- attr(density(sb_county_toxic_plant_obs_ppp), "sigma")
+  bw_nontoxic <- attr(density(sb_county_nontoxic_plant_obs_ppp), "sigma")
+  bw <- (bw_toxic + bw_nontoxic)/2
+  
+  #use selected bandwidth to compute the smoothed intensity estimates
+  int_toxic<- density(sb_county_toxic_plant_obs_ppp, sigma = bw)
+  int_nontoxic <- density(sb_county_nontoxic_plant_obs_ppp, sigma = bw)
+  
+  #estimate α as the ratio of number of toxic observations to the number of nontoxic observations
+  #to account for there being far mor nontoxic plant observations
+  alpha <- sb_county_toxic_plant_obs_ppp$n/sb_county_nontoxic_plant_obs_ppp$n
+  
+  #create intensity ratio raster
+  int_ratio <- int_toxic$v/(alpha * int_nontoxic$v)
+  int_ratio_raster <- rast(int_ratio)
+  
+  #transpose the image values returned by density(), since they are stored in transposed form
+  #save as raster and plot
+  int_ratio_raster_flip <- flip(int_ratio_raster, direction="vertical")
+  plot(int_ratio_raster_flip)
+  
+  #set raster's spatial extent to be the same as the individual kernel density rasters
+  #and add crs info to raster so it can be mapped
+  ext(int_ratio_raster_flip) <- ext(sb_county_nontoxic_plant_obs_raster)
+  crs(int_ratio_raster_flip) <- "+init=epsg:2229"
+  
+  
+    output$map_output <- renderLeaflet({
     leaflet() |>
       addTiles() |>
       addRasterImage(int_ratio_raster_flip, colors="YlOrRd", opacity = 0.7) |> #add opacity slider?
       setView(lng = -120.2, lat = 34.5, zoom = 8)   })
   
+  ##############  ELEVATION PLOT  ##############
+    
   output$selected_elevation <- renderText({
     paste("You selected:", paste(input$elevation_ft, collapse = ", "))
   })
@@ -190,6 +231,11 @@ server <- function(input, output) {
   output$elevation_plot_output <- renderPlot({
     plot(x=1:10,y=1:10,main = "Plants by Elevation")
   })
+  
+  ##############  TIME SERIES  ##############
+  
+    
+  ##############  GAME  ##############
   
   output$select_game <- renderText({
     paste("You selected:", paste(input$select_game, collapse = ", "))
