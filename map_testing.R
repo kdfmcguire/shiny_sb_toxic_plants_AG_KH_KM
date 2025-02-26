@@ -36,6 +36,7 @@ sb_county_sf <- ca_counties_sf |>
   filter(name=="Santa Barbara") |>
   st_transform(crs = 2229)
 
+
 #create spatial point pattern of plant observation
 toxic_plant_obs_ppp <- as.ppp(toxic_plant_obs_sf)
 #create spatial observation window  of sb county
@@ -124,7 +125,7 @@ plot(int_ratio_raster_flip)
 
 #set raster's spatial extent to be the same as the individual kernel density rasters
 #and add crs info to raster so it can be mapped
-ext(int_ratio_raster_flip) <- ext(sb_county_nontoxic_plant_obs_raster)
+ext(int_ratio_raster_flip) <- ext(sb_county_sf)
 crs(int_ratio_raster_flip) <- "+init=epsg:2229"
 
 ######################################################
