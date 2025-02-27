@@ -292,11 +292,20 @@ server <- function(input, output) {
     return(int_ratio_raster_flip)
   })
   output$map_output <- renderLeaflet({
+    if(length(input$toxin_type)>0){
     leaflet() |>
       addTiles() |>
-      addRasterImage(int_ratio_raster_reactive(), colors="YlOrRd", opacity = input$map_opacity) |> #add opacity slider?
+      addRasterImage(int_ratio_raster_reactive(),
+                     colors="YlOrRd",
+                     opacity = input$map_opacity) |>
       setView(lng = -120.2, lat = 34.5, zoom = 8)
-    })
+    }
+    else{
+      leaflet() |>
+        addTiles() |>
+        setView(lng = -120.2, lat = 34.5, zoom = 8)
+    }
+  })
   
   ##############  ELEVATION SERVER  ##############
     
