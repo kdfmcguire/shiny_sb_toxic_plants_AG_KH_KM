@@ -301,7 +301,8 @@ server <- function(input, output) {
       setView(lng = -120.2, lat = 34.5, zoom = 8) |>
       addLegend(pal = colorNumeric(palette="YlOrRd",
                                    values(int_ratio_raster_reactive())),
-                      values = values(int_ratio_raster_reactive(), na.rm = T)
+                      values = values(int_ratio_raster_reactive(), na.rm = T),
+                title = HTML("Intensity Ratio <br> of Toxic to <br> NonToxic Plants")
       )
     }
     else{
