@@ -18,6 +18,7 @@ library(sp)
 library(spatstat)
 library(terra)
 library(leaflet)
+library(janitor)
 
 ##########################################################################################
 
@@ -40,6 +41,9 @@ poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv")
 toxin_type <- poison_codes |>
   filter(Column =="Toxins") |>
   pull(Meaning)
+
+game_plants <- read_csv(here("data", "UCANR Skin Irritant Plants Clean.csv")) |>
+  clean_names()
 
 game_images <- read_csv(here("data", "plant_images.csv")) |>
   left_join(select(game_plants,scientific_name,toxic_part_1,toxic_part_2),by=c("plant_name"="scientific_name")) |>
