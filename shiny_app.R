@@ -35,16 +35,20 @@ sittp_theme <- bs_theme(bootswatch = "cerulean") |>
 
 #DATA
 
-##############  MAP  ##############
+##############  MAP DATA ##############
 plant_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
 ca_counties_sf <- read_sf(here("data","ca_counties_shapefile", "CA_counties.shp"))
+
 #retrieve sb county outline
 sb_county_sf <- ca_counties_sf |>
   janitor::clean_names() |>
   filter(name=="Santa Barbara") |>
   st_transform(crs = 2229)
 
-### TOXIC PLANTS FOR MAP ###
+#create spatial observation window  of sb county
+sb_county_owin <- as.owin(sb_county_sf)
+
+### TOXIC PLANTS FOR MAP (NOT FILTERED BY TOXIN TYPE) ###
 #drop rows with NA lat or lon, filter to only dermally toxic plants
 toxic_plant_obs <- plant_obs |>
   drop_na(Latitude) |>
@@ -75,16 +79,16 @@ sb_county_nontoxic_plant_obs_ppp <- ppp(nontoxic_plant_obs_ppp$x, nontoxic_plant
 sb_county_nontoxic_plant_obs_ppp <- unique(sb_county_nontoxic_plant_obs_ppp)
 
 #extract input options for Map
+toxin_type_list <- toxic_plant_obs_sf$`Toxin 1` |>
+  unique() |>
+  na.omit()
+
+##############  ELEVATION DATA ##############
+
+##############  TIME SERIES DATA ##############
+
+##############  GAME DATA ##############
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
-toxin_type <- poison_codes |>
-  filter(Column =="Toxins") |>
-  pull(Meaning)
-
-##############  ELEVATION PLOT  ##############
-
-##############  TIME SERIES  ##############
-
-##############  GAME  ##############
 
 game_plants <- read_csv(here("data", "UCANR Skin Irritant Plants Clean.csv")) |>
   clean_names()
@@ -113,7 +117,7 @@ ui <- fluidPage(
     title = "Should I touch that plant?",
     inverse = TRUE,
     
-    ##############  INFO PAGE  ##############
+    ##############  INFO PAGE UI  ##############
     
     nav_panel(title = "Overview",     # overview tab
               accordion(              # creating an accordion format for the overview tab
@@ -151,16 +155,23 @@ ui <- fluidPage(
                 )
               ),
     
-    ##############  MAP  ##############
+    ##############  MAP UI ##############
     
     nav_panel(title = "Plant Distribution Map", 
               titlePanel("Plant Distribution Map"),
               sidebarLayout(
                 sidebarPanel(
+                  sliderInput(inputId = "map_opacity",
+                              label = "Opacity",
+                              min = 0,
+                              max = 1,
+                              value = 0.5,
+                              step = 0.05
+                              ),
                   checkboxGroupInput(
                     inputId = 'toxin_type',
                     label = "Choose toxin type",
-                    choices = toxin_type
+                    choices = toxin_type_list
                     )
                   ),
                 mainPanel(
@@ -170,7 +181,7 @@ ui <- fluidPage(
                 )
               ),
     
-    ##############  ELEVATION PLOT  ##############
+    ##############  ELEVATION UI ##############
     
     nav_panel(title = "Elevation",
               titlePanel("Elevation"),
@@ -192,7 +203,7 @@ ui <- fluidPage(
                 )
               ),
     
-    ##############  TIME SERIES  ##############
+    ##############  TIME SERIES UI ##############
     
     nav_panel(title = "Time Series", 
               titlePanel("Time Series"),
@@ -211,7 +222,7 @@ ui <- fluidPage(
                )
               ),
     
-    ##############  GAME  ##############
+    ##############  GAME UI ##############
     
     nav_panel(title = "Game", p("Put your plant intuition to the test!"),
               titlePanel("Game"),
@@ -240,54 +251,54 @@ ui <- fluidPage(
 
 server <- function(input, output) {
 
-  ##############  MAP  ##############
+  ##############  MAP SERVER ##############
   
   ## Display selected toxin(s)
   output$selected_toxin <- renderText({
     paste("You selected:", paste(input$toxin_type, collapse = ", "))
   })
-
-  #create spatial point pattern of plant observation
-  toxic_plant_obs_ppp <- as.ppp(toxic_plant_obs_sf)
-  #create spatial observation window  of sb county
-  sb_county_owin <- as.owin(sb_county_sf)
-  #make full point pattern object
-  sb_county_toxic_plant_obs_ppp <- ppp(toxic_plant_obs_ppp$x, toxic_plant_obs_ppp$y, window = sb_county_owin)
-  #remove duplicates
-  sb_county_toxic_plant_obs_ppp <- unique(sb_county_toxic_plant_obs_ppp)
-
-  ##### INTENSITY RATIO
   
-  #find common bandwidth- mean of default bandwidths obtained when using density()
-  #to estimate the intensity of toxic and nontoxic plants separately.
-  bw_toxic <- attr(density(sb_county_toxic_plant_obs_ppp), "sigma")
-  bw_nontoxic <- attr(density(sb_county_nontoxic_plant_obs_ppp), "sigma")
-  bw <- (bw_toxic + bw_nontoxic)/2
-  #use selected bandwidth to compute the smoothed intensity estimates
-  int_toxic<- density(sb_county_toxic_plant_obs_ppp, sigma = bw)
-  int_nontoxic <- density(sb_county_nontoxic_plant_obs_ppp, sigma = bw)
-  #estimate α as the ratio of number of toxic observations to the number of nontoxic observations
-  #to account for there being far mor nontoxic plant observations
-  alpha <- sb_county_toxic_plant_obs_ppp$n/sb_county_nontoxic_plant_obs_ppp$n
-  #create intensity ratio raster
-  int_ratio <- int_toxic$v/(alpha * int_nontoxic$v)
-  int_ratio_raster <- rast(int_ratio)
-  #transpose the image values returned by density(), since they are stored in transposed form
-  #save as raster and plot
-  int_ratio_raster_flip <- flip(int_ratio_raster, direction="vertical")
-  plot(int_ratio_raster_flip)
-  #set raster's spatial extent to be the same as the individual kernel density rasters
-  #and add crs info to raster so it can be mapped
-  ext(int_ratio_raster_flip) <- ext(sb_county_sf)
-  crs(int_ratio_raster_flip) <- "+init=epsg:2229"
-  
-    output$map_output <- renderLeaflet({
+  int_ratio_raster_reactive <- reactive({
+    toxic_plant_obs_sf_filtered <- toxic_plant_obs_sf |>
+      filter(`Toxin 1` %in% input$toxin_type | `Toxin 2` %in% input$toxin_type)
+    #create spatial point pattern of plant observation
+    toxic_plant_obs_ppp <- as.ppp(toxic_plant_obs_sf_filtered)
+    #make full point pattern object
+    sb_county_toxic_plant_obs_ppp <- ppp(toxic_plant_obs_ppp$x, toxic_plant_obs_ppp$y, window = sb_county_owin)
+    #remove duplicates
+    sb_county_toxic_plant_obs_ppp <- unique(sb_county_toxic_plant_obs_ppp)
+    ###INTENSITY RATIO
+    #find common bandwidth- mean of default bandwidths obtained when using density()
+    #to estimate the intensity of toxic and nontoxic plants separately.
+    bw_toxic <- attr(density(sb_county_toxic_plant_obs_ppp), "sigma")
+    bw_nontoxic <- attr(density(sb_county_nontoxic_plant_obs_ppp), "sigma")
+    bw <- (bw_toxic + bw_nontoxic)/2
+    #use selected bandwidth to compute the smoothed intensity estimates
+    int_toxic <- density(sb_county_toxic_plant_obs_ppp, sigma = bw)
+    int_nontoxic <- density(sb_county_nontoxic_plant_obs_ppp, sigma = bw)
+    #estimate α as the ratio of number of toxic observations to the number of nontoxic observations
+    #to account for there being far mor nontoxic plant observations
+    alpha <- sb_county_toxic_plant_obs_ppp$n/sb_county_nontoxic_plant_obs_ppp$n
+    #create intensity ratio raster
+    int_ratio <- int_toxic$v/(alpha * int_nontoxic$v)
+    int_ratio_raster <- rast(int_ratio)
+    #transpose the image values returned by density(), since they are stored in transposed form
+    #save as raster and plot
+    int_ratio_raster_flip <- flip(int_ratio_raster, direction="vertical")
+    #set raster's spatial extent to be the same as the individual kernel density rasters
+    #and add crs info to raster so it can be mapped
+    ext(int_ratio_raster_flip) <- ext(sb_county_sf)
+    crs(int_ratio_raster_flip) <- "+init=epsg:2229"
+    return(int_ratio_raster_flip)
+  })
+  output$map_output <- renderLeaflet({
     leaflet() |>
       addTiles() |>
-      addRasterImage(int_ratio_raster_flip, colors="YlOrRd", opacity = 0.7) |> #add opacity slider?
-      setView(lng = -120.2, lat = 34.5, zoom = 8)   })
+      addRasterImage(int_ratio_raster_reactive(), colors="YlOrRd", opacity = input$map_opacity) |> #add opacity slider?
+      setView(lng = -120.2, lat = 34.5, zoom = 8)
+    })
   
-  ##############  ELEVATION PLOT  ##############
+  ##############  ELEVATION SERVER  ##############
     
   output$selected_elevation <- renderText({
     paste("You selected:", paste(input$elevation_ft, collapse = ", "))
@@ -297,10 +308,10 @@ server <- function(input, output) {
     plot(x=1:10,y=1:10,main = "Plants by Elevation")
   })
   
-  ##############  TIME SERIES  ##############
+  ##############  TIME SERIES SERVER ##############
   
     
-  ##############  GAME  ##############
+  ##############  GAME SERVER ##############
   current_plant <- reactiveVal(NULL)
   guess_message <- reactiveVal("") # initialize empty string
   

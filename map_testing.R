@@ -37,8 +37,13 @@ sb_county_sf <- ca_counties_sf |>
   st_transform(crs = 2229)
 
 
+###### TESTING IF FILTERING FORMAT WILL WORK ON SF ########
+ex <- toxic_plant_obs_sf |>
+  filter(`Toxin 1` %in% c("oxalate") | `Toxin 2` %in% c("oxalate"))
+  
+
 #create spatial point pattern of plant observation
-toxic_plant_obs_ppp <- as.ppp(toxic_plant_obs_sf)
+toxic_plant_obs_ppp <- as.ppp(ex)
 #create spatial observation window  of sb county
 sb_county_owin <- as.owin(sb_county_sf)
 #make full point pattern object
@@ -139,3 +144,4 @@ leaflet() |>
   addTiles() |>
   addRasterImage(int_ratio_raster_flip, colors="YlOrRd", opacity = 0.7) |> #add opacity slider?
   setView(lng = -120.2, lat = 34.5, zoom = 8) 
+
