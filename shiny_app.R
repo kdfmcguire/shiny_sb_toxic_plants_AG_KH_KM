@@ -41,9 +41,19 @@ toxin_type <- poison_codes |>
   filter(Column =="Toxins") |>
   pull(Meaning)
 
-toxic_part <- poison_codes |>
-  filter(Column =="Toxic Part") |>
-  pull(Meaning)
+game_images <- read_csv(here("data", "plant_images.csv")) |>
+  left_join(select(game_plants,scientific_name,toxic_part_1,toxic_part_2),by=c("plant_name"="scientific_name")) |>
+  left_join(select(poison_codes,Code,Meaning),by=c("toxic_part_1"="Code")) |>
+  left_join(select(poison_codes,Code,Meaning),by=c("toxic_part_2"="Code")) |>
+  rename(
+    toxic_part1 = Meaning.x,
+    toxic_part2 = Meaning.y
+  ) |>
+  select(plant_name,image_url,toxic_part1,toxic_part2)
+
+toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2)))
+toxic_part <- append(toxic_part, "none")
+toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 
 ##########################################################################################
 
@@ -162,14 +172,13 @@ ui <- fluidPage(
                   selectInput("select_game", 
                               label = "Which part of the plant is safe to touch?", 
                               choices = toxic_part, 
-                              selected = 1),
+                              selected = "none"),
                   actionButton("guess_game", label = "Guess",icon = icon("seedling")),
                   actionButton("new_game", label = "Play Again",icon = icon("leaf"))
                 ),
                 mainPanel( 
                   textOutput("select_game"),
-                  # placeholder image
-                  img(src = "https://www.calflora.org/app/up/entry/245/73766.jpg", height = "300px", width = "300px"),
+                  uiOutput("display_image"),
                   textOutput("guess_message")
                   )
                 )
@@ -290,23 +299,61 @@ server <- function(input, output) {
   
     
   ##############  GAME  ##############
-  
-  output$select_game <- renderText({
-    paste("You selected:", paste(input$select_game, collapse = ", "))
-  })
-  
-  #when guess is made
-  ################################################
+  current_plant <- reactiveVal(NULL)
   guess_message <- reactiveVal("") # initialize empty string
   
+  # sets first image when user clicks on tab
+  observe({
+    if (is.null(current_plant())) {
+      new_plant <- game_images[sample(nrow(game_images), 1), ]
+      current_plant(new_plant)
+    }
+  })
+  
+  # updates image when user selects 'play again'
+  observeEvent(input$new_game, {
+    new_plant <- game_images[sample(nrow(game_images), 1), ] # randomize
+    current_plant(new_plant)
+    guess_message("")
+  })
+  
+  output$display_image <- renderUI({
+    img(src = current_plant()$image_url, height = "400px")
+  })
+  
+  # sets response message based on user guess
   observeEvent(input$guess_game, {
-    guess_message("Oh no! You got a rash and your son was eaten by wolves ):") # populates string when clicked
+    # whole plant is toxic, user does not choose 'none'
+    if (current_plant()$toxic_part1 == "whole plant"
+        && input$select_game != 'none') {
+      guess_message(paste("Oh no, you got a rash! All parts of ",current_plant()$plant_name," are toxic."))
+    } 
+    # whole plant is toxic, user does chooses 'none'
+    else if (current_plant()$toxic_part1 == "whole plant") {
+      guess_message(paste("Phew! All parts of ",current_plant()$plant_name," are toxic. You safely admired from afar."))
+    } # user chooses 'none', 1 toxic part
+    else if (input$select_game=="none" && is.na(current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You played it safe by not touching ",current_plant()$plant_name,". Only the ",current_plant()$toxic_part1, " is toxic. You missed out on a magical moment with nature ):"))
+    } # user chooses 'none', 2 toxic parts
+    else if (input$select_game=="none" && !is.na(current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You played it safe by not touching ",current_plant()$plant_name,". Only the ",current_plant()$toxic_part1," and ",current_plant()$toxic_part2, " are toxic. You missed out on a magical moment with nature ):"))
+    }
+    else if (input$select_game==current_plant()$toxic_part1 && is.na(current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You touched ",current_plant()$plant_name," and got a rash. The ",current_plant()$toxic_part1," is toxic."))
+    }
+    else if (input$select_game==current_plant()$toxic_part1
+             || (!is.na(current_plant()$toxic_part2) &&
+                 input$select_game==current_plant()$toxic_part2)) {
+      guess_message(paste("Oh no! You touched ",current_plant()$plant_name," and got a rash. The ",current_plant()$toxic_part1, " and ",current_plant()$toxic_part2, "are toxic.")) 
+    } 
+    else {
+      guess_message(paste("Phew! You touched a safe part of ",current_plant()$plant_name," and had a magical moment with nature (:"))
+    }
   })
   
   output$guess_message <- renderText({
     guess_message()  # outputs message to user
   })
-  
   
   ################################################
   
