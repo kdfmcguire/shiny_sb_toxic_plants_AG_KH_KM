@@ -35,12 +35,56 @@ sittp_theme <- bs_theme(bootswatch = "cerulean") |>
 
 #DATA
 
-#extract input options for widgets
-poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
+##############  MAP  ##############
+plant_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
+ca_counties_sf <- read_sf(here("data","ca_counties_shapefile", "CA_counties.shp"))
+#retrieve sb county outline
+sb_county_sf <- ca_counties_sf |>
+  janitor::clean_names() |>
+  filter(name=="Santa Barbara") |>
+  st_transform(crs = 2229)
 
+### TOXIC PLANTS FOR MAP ###
+#drop rows with NA lat or lon, filter to only dermally toxic plants
+toxic_plant_obs <- plant_obs |>
+  drop_na(Latitude) |>
+  drop_na(Longitude) |>
+  filter(!is.na(`Toxic parts`))
+#make dataframe into sf, assign WGS84 CRS (based on info from the source, CalFlora)          
+toxic_plant_obs_sf <- st_as_sf(toxic_plant_obs, coords = c("Longitude","Latitude"), crs = "WGS84")
+#transform data to projected coordinate system, NAD83 California state plane zone 5
+toxic_plant_obs_sf <- toxic_plant_obs_sf |>
+  st_transform(crs = 2229)
+
+### NONTOXIC PLANTS FOR MAP ###
+#drop rows with NA lat or lon, filter to only NON dermally toxic plants
+nontoxic_plant_obs <- plant_obs |>
+  drop_na(Latitude) |>
+  drop_na(Longitude) |>
+  filter(is.na(`Toxic parts`))
+#make dataframe into sf, assign WGS84 CRS (based on info from the source, CalFlora)          
+nontoxic_plant_obs_sf <- st_as_sf(nontoxic_plant_obs, coords = c("Longitude","Latitude"), crs = "WGS84")
+#transform data to projected coordinate system, NAD83 California state plane zone 5
+nontoxic_plant_obs_sf <- nontoxic_plant_obs_sf |>
+  st_transform(crs = 2229)
+#create spatial point pattern of nontoxic plant observation
+nontoxic_plant_obs_ppp <- as.ppp(nontoxic_plant_obs_sf)
+#make full point pattern object
+sb_county_nontoxic_plant_obs_ppp <- ppp(nontoxic_plant_obs_ppp$x, nontoxic_plant_obs_ppp$y, window = sb_county_owin)
+#remove duplicates
+sb_county_nontoxic_plant_obs_ppp <- unique(sb_county_nontoxic_plant_obs_ppp)
+
+#extract input options for Map
+poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
 toxin_type <- poison_codes |>
   filter(Column =="Toxins") |>
   pull(Meaning)
+
+##############  ELEVATION PLOT  ##############
+
+##############  TIME SERIES  ##############
+
+##############  GAME  ##############
 
 game_plants <- read_csv(here("data", "UCANR Skin Irritant Plants Clean.csv")) |>
   clean_names()
@@ -202,32 +246,7 @@ server <- function(input, output) {
   output$selected_toxin <- renderText({
     paste("You selected:", paste(input$toxin_type, collapse = ", "))
   })
-  
-  # create intensity ration raster for selected plants
-  
-  plant_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
-  ca_counties_sf <- read_sf(here("data","ca_counties_shapefile", "CA_counties.shp"))
-  
-  #retrieve sb county outline
-  sb_county_sf <- ca_counties_sf |>
-    janitor::clean_names() |>
-    filter(name=="Santa Barbara") |>
-    st_transform(crs = 2229)
-  
-  #####  TOXIC PLANTS
-  
-  #drop rows with NA lat or lon, filter to only dermally toxic plants
-  toxic_plant_obs <- plant_obs |>
-    drop_na(Latitude) |>
-    drop_na(Longitude) |>
-    filter(!is.na(`Toxic parts`))
-  #make dataframe into sf, assign WGS84 CRS (based on info from the source, CalFlora)          
-  toxic_plant_obs_sf <- st_as_sf(toxic_plant_obs, coords = c("Longitude","Latitude"), crs = "WGS84")
-  st_crs(toxic_plant_obs_sf) #check CRS
-  #transform data to projected coordinate system, NAD83 California state plane zone 5
-  toxic_plant_obs_sf <- toxic_plant_obs_sf |>
-    st_transform(crs = 2229)
-  st_crs(toxic_plant_obs_sf) #check CRS
+
   #create spatial point pattern of plant observation
   toxic_plant_obs_ppp <- as.ppp(toxic_plant_obs_sf)
   #create spatial observation window  of sb county
@@ -236,27 +255,6 @@ server <- function(input, output) {
   sb_county_toxic_plant_obs_ppp <- ppp(toxic_plant_obs_ppp$x, toxic_plant_obs_ppp$y, window = sb_county_owin)
   #remove duplicates
   sb_county_toxic_plant_obs_ppp <- unique(sb_county_toxic_plant_obs_ppp)
-
-  #####  NONTOXIC PLANTS
-  
-  #drop rows with NA lat or lon, filter to only NON dermally toxic plants
-  nontoxic_plant_obs <- plant_obs |>
-    drop_na(Latitude) |>
-    drop_na(Longitude) |>
-    filter(is.na(`Toxic parts`))
-  #make dataframe into sf, assign WGS84 CRS (based on info from the source, CalFlora)          
-  nontoxic_plant_obs_sf <- st_as_sf(nontoxic_plant_obs, coords = c("Longitude","Latitude"), crs = "WGS84")
-  st_crs(nontoxic_plant_obs_sf) #check CRS
-  #transform data to projected coordinate system, NAD83 California state plane zone 5
-  nontoxic_plant_obs_sf <- nontoxic_plant_obs_sf |>
-    st_transform(crs = 2229)
-  st_crs(nontoxic_plant_obs_sf) #check CRS
-  #create spatial point pattern of nontoxic plant observation
-  nontoxic_plant_obs_ppp <- as.ppp(nontoxic_plant_obs_sf)
-  #make full point pattern object
-  sb_county_nontoxic_plant_obs_ppp <- ppp(nontoxic_plant_obs_ppp$x, nontoxic_plant_obs_ppp$y, window = sb_county_owin)
-  #remove duplicates
-  sb_county_nontoxic_plant_obs_ppp <- unique(sb_county_nontoxic_plant_obs_ppp)
 
   ##### INTENSITY RATIO
   
