@@ -84,6 +84,33 @@ toxin_type_list <- toxic_plant_obs_sf$`Toxin 1` |>
   na.omit()
 
 ##############  ELEVATION DATA ##############
+characteristics_data <- read_csv(here("data", "sb_species_w_characteristics_toxins.csv")) 
+
+characteristics_elevation_clean <- characteristics_data |>
+  janitor::clean_names() |>
+  select(lifeform, lower_elevation, upper_elevation) |>
+  cbind(lifeform_clean = NA) |>
+  mutate(lifeform = tolower(lifeform))
+
+unique(characteristics_elevation_clean$lifeform)
+
+# create broader groups :tree, herb, shrub, grass, moss, hornwort, vine, seaweed, fern
+
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "grass")] = "Grass"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "herb")] = "Herb"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "shrub")] = "Shrub"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "tree")] = "Tree"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "moss")] = "Herb"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "hornwort")] = "Hornwort"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "vine")] = "Vine"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "seaweed")] = "Seaweed"
+characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "fern")] = "Fern"
+
+characteristics_elevation_clean <- characteristics_elevation_clean |> drop_na() |>
+  mutate(lifeform_clean = as.factor(lifeform_clean))
+
+unique(characteristics_elevation_clean$lifeform)
+
 
 ##############  TIME SERIES DATA ##############
 
@@ -184,24 +211,23 @@ ui <- fluidPage(
     ##############  ELEVATION UI ##############
     
     nav_panel(title = "Elevation",
-              titlePanel("Elevation"),
-              sidebarLayout(
+              layout_sidebar( # confirm that this is the right function
                 sidebarPanel(
                   sliderInput(
-                    inputId = 'elevation_ft',
-                    label = "Choose elevation range",
-                    min=0,
-                    max=7000,
-                    value=c(0,7000),
-                    step=100
-                    )
-                  ),
+                    inputId = "upper_elevation", # change to between range
+                    label = "Choose elevation range", 
+                    min=-1000,
+                    max=10000,
+                    value=0,
+                    step=250
+                  )
+                ),
+                
                 mainPanel( 
                   textOutput("selected_elevation"),
-                  plotOutput("elevation_plot_output")
-                  )
+                  plotOutput(outputId = "elevation_plot_output")  
                 )
-              ),
+              )),
     
     ##############  TIME SERIES UI ##############
     
@@ -314,12 +340,24 @@ server <- function(input, output) {
   
   ##############  ELEVATION SERVER  ##############
     
+  elevation_select <- reactive({
+    characteristics_df <- characteristics_elevation_clean |> # sum is.na
+      mutate(within_elevation = if_else((input$upper_elevation > lower_elevation & input$upper_elevation < upper_elevation), 1, 0)) |>
+      group_by(lifeform_clean) |>
+      summarize(count = sum(within_elevation))
+  })
+  
   output$selected_elevation <- renderText({
-    paste("You selected:", paste(input$elevation_ft, collapse = ", "))
+    paste("You selected:", paste(input$upper_elevation, collapse = ", "))
   })
   
   output$elevation_plot_output <- renderPlot({
-    plot(x=1:10,y=1:10,main = "Plants by Elevation")
+    ggplot(data = elevation_select()) +
+      geom_col(aes(x = lifeform_clean, y = count)) +
+      scale_fill_manual(values = c("#576B47")) +
+      ylim(0, 10) +
+      labs(x = "Lifeform", y = "Number of Species", title = "Number of species per lifeform category") +
+      theme_bw()
   })
   
   ##############  TIME SERIES SERVER ##############
