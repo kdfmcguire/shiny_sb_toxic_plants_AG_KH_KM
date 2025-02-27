@@ -298,7 +298,11 @@ server <- function(input, output) {
       addRasterImage(int_ratio_raster_reactive(),
                      colors="YlOrRd",
                      opacity = input$map_opacity) |>
-      setView(lng = -120.2, lat = 34.5, zoom = 8)
+      setView(lng = -120.2, lat = 34.5, zoom = 8) |>
+      addLegend(pal = colorNumeric(palette="YlOrRd",
+                                   values(int_ratio_raster_reactive())),
+                      values = values(int_ratio_raster_reactive(), na.rm = T)
+      )
     }
     else{
       leaflet() |>
