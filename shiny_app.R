@@ -1,7 +1,7 @@
 # Shiny Script
 #Abbey Guilliat, Karlie Hayes, Kylie McGuire
 
-##########################################################################################
+######################################LIBRARIES####################################################
 
 library(shiny)
 library(tidyverse)
@@ -23,7 +23,7 @@ library(tsibble)
 library(lubridate)
 
 
-##########################################################################################
+#########################################THEME#################################################
 
 #THEME
 
@@ -34,7 +34,7 @@ sittp_theme <- bs_theme(bootswatch = "cerulean") |>
                   
                   font_scale = NULL, preset = "cerulean")
 
-##########################################################################################
+##########################################DATA################################################
 
 #DATA
 
@@ -138,7 +138,17 @@ time_obs_ntoxic <- time_obs |>
              index = date) |>
   index_by(year = ~year(.)) 
 
+#once data is loaded, replace "non-native invasive" with "non-native"
+# and replace "rare" with "native"
+
+#observations <- observations |>
+#  mutate(`Native Status` = case_when(
+#    `Native Status` == "non-native invasive" ~ "non-native",
+#    `Native Status` == "rare" ~ "native",
+#    TRUE ~ `Native Status`))
+
 ##############  GAME DATA ##############
+
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
 
 game_plants <- read_csv(here("data", "UCANR Skin Irritant Plants Clean.csv")) |>
@@ -158,7 +168,7 @@ toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2
 toxic_part <- append(toxic_part, "none")
 toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 
-##########################################################################################
+##########################################UI################################################
 
 #USER INTERFACE
 
@@ -226,7 +236,7 @@ ui <- fluidPage(
                     )
                   ),
                 mainPanel(
-                  textOutput("selected_toxin"),
+                  textOutput(outputId = "selected_toxin"),
                   leafletOutput(outputId = "map_output")
                   )
                 )
@@ -247,7 +257,7 @@ ui <- fluidPage(
                 ),
                 
                 mainPanel( 
-                  textOutput("selected_elevation"),
+                  textOutput(outputId = "selected_elevation"),
                   plotOutput(outputId = "elevation_plot_output")  
                 )
               ),
@@ -258,17 +268,20 @@ ui <- fluidPage(
               titlePanel("Time Series"),
               sidebarLayout(
                 sidebarPanel(
-                            radioButtons(inputId = "native_status", # R variable name
-                                         label = "Native Status", 
-                                         choices = c("Native" = "native", "Non-Native" = "non-native", 
-                                                     "Non-Native Invastive" = "non-native_invastive", "Rare" = "rare")) # confirm whether rare means non-native
-                            # checkboxGroupInput(inputId = "Lifeform",
-                            #                    label = "Lifeform Type",
-                            #                    choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
-                                                         
-                              ),
-                 mainPanel("Title - Count over Time",
-                           plotOutput(outputId = "time_plot_output")) # add later
+                  checkboxGroupInput(inputId = "native_status_choice",
+                                     label = "Native Status", 
+                                     choices = c("Native" = "native", "Non-Native" = "non-native")
+                                     ), 
+                   checkboxGroupInput(inputId = "duration_choice",
+                                      label = "Duration",
+                                      choices = c("Perennial", "Annual")
+                                      )
+                  ),
+                 mainPanel("Count of Observations Over Time",
+                           textOutput(outputId = "ts_native_choice"),
+                           textOutput(outputId = "ts_duration_choice"),
+                           plotOutput(outputId = "time_plot_output")
+                           )
                )
               ),
     
@@ -295,7 +308,7 @@ ui <- fluidPage(
     )
 )
 
-##########################################################################################
+###########################################SERVER###############################################
 
 #SERVER
 
@@ -385,7 +398,7 @@ server <- function(input, output) {
   })
   
   ##############  TIME SERIES SERVER ##############
-  
+
     
   ##############  GAME SERVER ##############
   current_plant <- reactiveVal(NULL)
