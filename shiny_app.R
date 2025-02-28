@@ -19,6 +19,9 @@ library(spatstat)
 library(terra)
 library(leaflet)
 library(janitor)
+library(tsibble)
+library(lubridate)
+
 
 ##########################################################################################
 
@@ -113,6 +116,32 @@ unique(characteristics_elevation_clean$lifeform)
 
 
 ##############  TIME SERIES DATA ##############
+time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv")) |>
+  clean_names() |>
+  select(date, native_status, toxic_parts)
+
+# toxic
+time_obs_toxic <- time_obs |>
+  filter(!(is.na(toxic_parts))) |>
+  mutate(date = ymd(date)) |>
+  as_tsibble(key = NULL,
+             index = date) |>
+  index_by(year = year(.)) |>
+  summarize(yearly_count = count()) 
+# Karlie stopped work here
+
+
+# non-toxic
+time_obs_ntoxic <- time_obs |>
+  filter((is.na(toxic_parts)))|>
+  mutate(date = ymd(date)) |>
+  as_tsibble(key = NULL,
+             index = date)
+
+
+
+
+
 
 ##############  GAME DATA ##############
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
