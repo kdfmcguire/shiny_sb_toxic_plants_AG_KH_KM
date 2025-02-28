@@ -118,30 +118,25 @@ unique(characteristics_elevation_clean$lifeform)
 ##############  TIME SERIES DATA ##############
 time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv")) |>
   clean_names() |>
-  select(date, native_status, toxic_parts)
+  select(date, native_status, toxic_parts, taxon, latitude, longitude, lifeform) |>
+  unique() # confirm that it is ok to do this - was having issues with duplicate data
+
 
 # toxic
 time_obs_toxic <- time_obs |>
   filter(!(is.na(toxic_parts))) |>
   mutate(date = ymd(date)) |>
-  as_tsibble(key = NULL,
+  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
              index = date) |>
-  index_by(year = year(.)) |>
-  summarize(yearly_count = count()) 
-# Karlie stopped work here
-
+  index_by(year = ~year(.)) 
 
 # non-toxic
 time_obs_ntoxic <- time_obs |>
   filter((is.na(toxic_parts)))|>
   mutate(date = ymd(date)) |>
-  as_tsibble(key = NULL,
-             index = date)
-
-
-
-
-
+  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
+             index = date) |>
+  index_by(year = ~year(.)) 
 
 ##############  GAME DATA ##############
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
@@ -263,12 +258,13 @@ ui <- fluidPage(
               titlePanel("Time Series"),
               sidebarLayout(
                 sidebarPanel(
-                            radioButtons(inputId = "Native Status", # R variable name
+                            radioButtons(inputId = "native_status", # R variable name
                                          label = "Native Status", 
-                                         choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
-                            checkboxGroupInput(inputId = "Lifeform",
-                                               label = "Lifeform Type",
-                                               choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
+                                         choices = c("Native" = "native", "Non-Native" = "non-native", 
+                                                     "Non-Native Invastive" = "non-native_invastive", "Rare" = "rare")) # confirm whether rare means non-native
+                            # checkboxGroupInput(inputId = "Lifeform",
+                            #                    label = "Lifeform Type",
+                            #                    choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
                                                          
                               ),
                  mainPanel("Title - Count over Time",
