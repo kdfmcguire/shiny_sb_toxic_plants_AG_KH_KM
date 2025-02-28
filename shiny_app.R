@@ -114,7 +114,17 @@ unique(characteristics_elevation_clean$lifeform)
 
 ##############  TIME SERIES DATA ##############
 
+#once data is loaded, replace "non-native invasive" with "non-native"
+# and replace "rare" with "native"
+
+#observations <- observations |>
+#  mutate(`Native Status` = case_when(
+#    `Native Status` == "non-native invasive" ~ "non-native",
+#    `Native Status` == "rare" ~ "native",
+#    TRUE ~ `Native Status`))
+
 ##############  GAME DATA ##############
+
 poison_codes <- read_csv(here("data", "UCANR Poisonous Plants Metadata Key.csv"))
 
 game_plants <- read_csv(here("data", "UCANR Skin Irritant Plants Clean.csv")) |>
@@ -202,7 +212,7 @@ ui <- fluidPage(
                     )
                   ),
                 mainPanel(
-                  textOutput("selected_toxin"),
+                  textOutput(outputId = "selected_toxin"),
                   leafletOutput(outputId = "map_output")
                   )
                 )
@@ -223,7 +233,7 @@ ui <- fluidPage(
                 ),
                 
                 mainPanel( 
-                  textOutput("selected_elevation"),
+                  textOutput(outputId = "selected_elevation"),
                   plotOutput(outputId = "elevation_plot_output")  
                 )
               ),
@@ -234,16 +244,20 @@ ui <- fluidPage(
               titlePanel("Time Series"),
               sidebarLayout(
                 sidebarPanel(
-                            radioButtons(inputId = "Native Status", # R variable name
-                                         label = "Native Status", 
-                                         choices = c("Native" = "native", "Non-Native" = "rare")), # confirm whether rare means non-native
-                            checkboxGroupInput(inputId = "Lifeform",
-                                               label = "Lifeform Type",
-                                               choices = c("Perennial Herb", "Annual Herb")) # add all of the choices here (this is just a few)
-                                                         
-                              ),
-                 mainPanel("Title - Count over Time",
-                           plotOutput(outputId = "time_plot_output")) # add later
+                  checkboxGroupInput(inputId = "native_status_choice",
+                                     label = "Native Status", 
+                                     choices = c("Native" = "native", "Non-Native" = "non-native")
+                                     ), 
+                   checkboxGroupInput(inputId = "duration_choice",
+                                      label = "Duration",
+                                      choices = c("Perennial", "Annual")
+                                      )
+                  ),
+                 mainPanel("Count of Observations Over Time",
+                           textOutput(outputId = "ts_native_choice"),
+                           textOutput(outputId = "ts_duration_choice"),
+                           plotOutput(outputId = "time_plot_output")
+                           )
                )
               ),
     
@@ -360,8 +374,7 @@ server <- function(input, output) {
   })
   
   ##############  TIME SERIES SERVER ##############
-  
-  
+
     
   ##############  GAME SERVER ##############
   current_plant <- reactiveVal(NULL)
