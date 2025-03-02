@@ -402,7 +402,7 @@ server <- function(input, output) {
       scale_fill_manual(values = c("#576B47")) +
       ylim(0, 10) +
       labs(x = "Lifeform", y = "Number of Species", title = "Number of species per lifeform category") +
-      theme_bw()
+      theme_light()
   })
   
   ##############  TIME SERIES SERVER ##############
@@ -426,7 +426,10 @@ server <- function(input, output) {
   
   output$time_plot_output <- renderPlot({
     ggplot(data = time_series_plot_data()) +
-      geom_line(aes(x=date_selected, y=toxic_count/non_toxic_count))
+      geom_line(aes(x=date_selected, y=toxic_count/non_toxic_count)) +
+      labs(x = "Date",
+           y = "Toxic:NonToxic Plant Observations")
+      theme_light()
     
   })
     
