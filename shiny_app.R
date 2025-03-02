@@ -286,7 +286,7 @@ ui <- fluidPage(
                                  startview = "year",
                                  separator = " - "),
                 ),
-                mainPanel("Count of Observations Over Time",
+                mainPanel("Ratio of Toxic to Nontoxic Plant Observations",
                           textOutput("native_choice_out"),
                           plotOutput(outputId = "time_plot_output")
                 )
