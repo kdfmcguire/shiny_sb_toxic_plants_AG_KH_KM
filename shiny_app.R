@@ -128,7 +128,7 @@ time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
     native_status == "non-native invasive" ~ "non-native",
     native_status == "rare" ~ "native",
     TRUE ~ native_status)) |>
-    unique() |> # confirm that it is ok to do this - was having issues with duplicate data
+    unique() |> 
     mutate(date = ymd(date)) |>
     as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
              index = date)
@@ -276,7 +276,7 @@ ui <- fluidPage(
                                      choices = c("Native" = "native", "Non-Native" = "non-native")
                   ),
                   selectInput(inputId = "time_scale_choice_in", 
-                              label = "Select time scale :", 
+                              label = "Select time scale:", 
                               choices = c("Monthly" = "yearmonth", "Quarterly" = "yearquarter", "Yearly" = "year") 
                   ),
                   dateRangeInput(inputId = "date_range_in",
@@ -286,7 +286,7 @@ ui <- fluidPage(
                                  startview = "year",
                                  separator = " - "),
                 ),
-                mainPanel("Count of Observations Over Time",
+                mainPanel("Proportion of toxic to non-toxic plant observations over time",
                           textOutput("native_choice_out"),
                           plotOutput(outputId = "time_plot_output")
                 )
@@ -426,9 +426,12 @@ server <- function(input, output) {
   
   output$time_plot_output <- renderPlot({
     ggplot(data = time_series_plot_data()) +
-      geom_line(aes(x=date_selected, y=toxic_count/non_toxic_count)) +
+      geom_line(aes(x=as.Date(date_selected), y=toxic_count/non_toxic_count)) +
       labs(x = "Date",
            y = "Toxic:NonToxic Plant Observations") +
+      scale_x_date(date_breaks = "5 years", 
+                   date_labels = "%Y", 
+                   limits = c(as.Date("1975-01-01"), as.Date("2022-01-01"))) +
       theme_light()
   })
     
