@@ -133,22 +133,6 @@ time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
     as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
              index = date)
 
-# toxic
-#time_obs_toxic <- time_obs |>
-#  mutate(date = ymd(date)) |>
-#  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
-#             index = date) |>
-#  index_by(year = ~year(.)) 
-
-# non-toxic
-#time_obs_nontoxic <- time_obs |>
-#  filter((is.na(toxic_parts)))|>
-#  mutate(date = ymd(date)) |>
-#  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
-#             index = date) |>
-#  index_by(year = ~year(.)) 
-
-
 
 ##############  GAME DATA ##############
 
@@ -430,8 +414,7 @@ server <- function(input, output) {
       labs(x = "Date",
            y = "Toxic:NonToxic Plant Observations") +
       scale_x_date(date_breaks = "5 years", 
-                   date_labels = "%Y", 
-                   limits = c(as.Date("1975-01-01"), as.Date("2022-01-01"))) +
+                   date_labels = "%Y") +
       theme_light()
   })
     
