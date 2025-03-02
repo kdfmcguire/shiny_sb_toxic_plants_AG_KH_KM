@@ -116,36 +116,39 @@ unique(characteristics_elevation_clean$lifeform)
 
 
 ##############  TIME SERIES DATA ##############
-time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv")) |>
-  clean_names() |>
-  select(date, native_status, toxic_parts, taxon, latitude, longitude, lifeform) |>
-  unique() # confirm that it is ok to do this - was having issues with duplicate data
 
+#load data, remove duplicates,
+#replace "non-native invasive" with "non-native" and replace "rare" with "native"
+time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
+
+  time_obs_ts <- time_obs |>
+    clean_names() |>
+    select(date, native_status, toxic_parts, taxon, latitude, longitude, duration) |>
+    mutate(native_status = case_when(
+    native_status == "non-native invasive" ~ "non-native",
+    native_status == "rare" ~ "native",
+    TRUE ~ native_status)) |>
+    unique() |> # confirm that it is ok to do this - was having issues with duplicate data
+    mutate(date = ymd(date)) |>
+    as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
+             index = date)
 
 # toxic
-time_obs_toxic <- time_obs |>
-  filter(!(is.na(toxic_parts))) |>
-  mutate(date = ymd(date)) |>
-  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
-             index = date) |>
-  index_by(year = ~year(.)) 
+#time_obs_toxic <- time_obs |>
+#  mutate(date = ymd(date)) |>
+#  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
+#             index = date) |>
+#  index_by(year = ~year(.)) 
 
 # non-toxic
-time_obs_ntoxic <- time_obs |>
-  filter((is.na(toxic_parts)))|>
-  mutate(date = ymd(date)) |>
-  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
-             index = date) |>
-  index_by(year = ~year(.)) 
+#time_obs_nontoxic <- time_obs |>
+#  filter((is.na(toxic_parts)))|>
+#  mutate(date = ymd(date)) |>
+#  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, lifeform),
+#             index = date) |>
+#  index_by(year = ~year(.)) 
 
-#once data is loaded, replace "non-native invasive" with "non-native"
-# and replace "rare" with "native"
 
-#observations <- observations |>
-#  mutate(`Native Status` = case_when(
-#    `Native Status` == "non-native invasive" ~ "non-native",
-#    `Native Status` == "rare" ~ "native",
-#    TRUE ~ `Native Status`))
 
 ##############  GAME DATA ##############
 
@@ -268,22 +271,27 @@ ui <- fluidPage(
               titlePanel("Time Series"),
               sidebarLayout(
                 sidebarPanel(
-                  checkboxGroupInput(inputId = "native_status_choice",
+                  checkboxGroupInput(inputId = "native_choice_in",
                                      label = "Native Status", 
                                      choices = c("Native" = "native", "Non-Native" = "non-native")
-                                     ), 
-                   checkboxGroupInput(inputId = "duration_choice",
-                                      label = "Duration",
-                                      choices = c("Perennial", "Annual")
-                                      )
                   ),
-                 mainPanel("Count of Observations Over Time",
-                           textOutput(outputId = "ts_native_choice"),
-                           textOutput(outputId = "ts_duration_choice"),
-                           plotOutput(outputId = "time_plot_output")
-                           )
-               )
-              ),
+                  selectInput(inputId = "time_scale_choice_in", 
+                              label = "Select time scale :", 
+                              choices = c("Monthly" = "yearmonth", "Quarterly" = "yearquarter", "Yearly" = "year") 
+                  ),
+                  dateRangeInput(inputId = "date_range_in",
+                                 label = "Date range:",
+                                 start = "1975-01-01",
+                                 end = "2024-12-31",
+                                 startview = "year",
+                                 separator = " - "),
+                ),
+                mainPanel("Count of Observations Over Time",
+                          textOutput("native_choice_out"),
+                          plotOutput(outputId = "time_plot_output")
+                )
+              )
+    ),
     
     ##############  GAME UI ##############
     
@@ -398,7 +406,29 @@ server <- function(input, output) {
   })
   
   ##############  TIME SERIES SERVER ##############
-
+  
+  time_series_plot_data <- reactive({
+    time_obs_ts |> 
+      filter(native_status %in% input$native_choice_in) |>
+      index_by(date_selected = ~get(!!input$time_scale_choice_in)(.)) |>
+      filter_index(as.character(input$date_range_in[1]) ~ as.character(input$date_range_in[2])) |>
+      summarize(toxic_count = sum(!is.na(toxic_parts)),
+                non_toxic_count = sum(is.na(toxic_parts))
+      ) |>
+      ungroup()
+  })
+  
+  output$native_choice_out <- renderText({
+    paste("You selected:", paste(input$native_choice_in,
+                                 collapse = ", ")
+    )
+  })
+  
+  output$time_plot_output <- renderPlot({
+    ggplot(data = time_series_plot_data()) +
+      geom_line(aes(x=date_selected, y=toxic_count/non_toxic_count))
+    
+  })
     
   ##############  GAME SERVER ##############
   current_plant <- reactiveVal(NULL)
@@ -455,12 +485,6 @@ server <- function(input, output) {
   
   output$guess_message <- renderText({
     guess_message()  # outputs message to user
-  })
-  
-  ################################################
-  
-  output$time_plot_output <- renderPlot({
-    plot(x=1:10,y=1:10,main = "Plants over time")
   })
   
 }
