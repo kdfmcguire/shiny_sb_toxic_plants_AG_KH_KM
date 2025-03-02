@@ -428,9 +428,8 @@ server <- function(input, output) {
     ggplot(data = time_series_plot_data()) +
       geom_line(aes(x=date_selected, y=toxic_count/non_toxic_count)) +
       labs(x = "Date",
-           y = "Toxic:NonToxic Plant Observations")
+           y = "Toxic:NonToxic Plant Observations") +
       theme_light()
-    
   })
     
   ##############  GAME SERVER ##############
