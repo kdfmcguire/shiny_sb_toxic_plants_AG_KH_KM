@@ -232,6 +232,7 @@ ui <- fluidPage(
     ##############  ELEVATION UI ##############
     
     nav_panel(title = "Elevation",
+              sidebarLayout(
                 sidebarPanel(
                   sliderInput(
                     inputId = "upper_elevation", # change to between range
@@ -247,7 +248,8 @@ ui <- fluidPage(
                   textOutput(outputId = "selected_elevation"),
                   plotOutput(outputId = "elevation_plot_output")  
                 )
-              ),
+              )
+            ),
     
     ##############  TIME SERIES UI ##############
     
