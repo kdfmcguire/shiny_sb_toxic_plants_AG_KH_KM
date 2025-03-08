@@ -240,7 +240,7 @@ ui <- fluidPage(
                     min=-1000,
                     max=10000,
                     value=0,
-                    step=250
+                    step=1000
                   )
                 ),
                 
@@ -384,9 +384,9 @@ server <- function(input, output) {
   
   output$elevation_plot_output <- renderPlot({
     ggplot(data = elevation_select()) +
-      geom_col(aes(x = lifeform_clean, y = count)) +
-      scale_fill_manual(values = c("#576B47")) +
+      geom_col(aes(x = lifeform_clean, y = count), fill = "#576B47") +
       ylim(0, 10) +
+      scale_y_continuous(n.breaks = 5) +
       labs(x = "Lifeform", y = "Number of Species", title = "Number of species per lifeform category") +
       theme_light()
   })
