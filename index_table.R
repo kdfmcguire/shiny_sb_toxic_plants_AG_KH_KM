@@ -22,6 +22,7 @@ library(janitor)
 library(tsibble)
 library(lubridate)
 library(tools)
+library(dplyr)
 
 
 #########################################THEME#################################################
@@ -122,18 +123,29 @@ unique(characteristics_elevation_clean$lifeform)
 #replace "non-native invasive" with "non-native" and replace "rare" with "native"
 time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
 
-  time_obs_ts <- time_obs |>
-    clean_names() |>
-    select(date, native_status, toxic_parts, taxon, latitude, longitude, duration) |>
-    mutate(native_status = case_when(
+time_obs_ts <- time_obs |>
+  clean_names() |>
+  select(date, native_status, toxic_parts, taxon, latitude, longitude, duration) |>
+  mutate(native_status = case_when(
     native_status == "non-native invasive" ~ "non-native",
     native_status == "rare" ~ "native",
     TRUE ~ native_status)) |>
-    unique() |> 
-    mutate(date = ymd(date)) |>
-    as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
+  unique() |> 
+  mutate(date = ymd(date)) |>
+  as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
              index = date)
 
+##############  TABLE DATA ##############
+toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
+  mutate(
+    Species = toTitleCase(Species),
+    `Native Status` = toTitleCase(`Native Status`),
+    `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
+    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
+  ) |>
+  select(Species, `Common Name`, Family, Genus, Taxon, Lifeform, `Native Status`,`Start Bloom Month`,`End Bloom Month`)
+
+native_status_list <- unique(toxic_index$`Native Status`)
 
 ##############  GAME DATA ##############
 
@@ -155,18 +167,6 @@ game_images <- read_csv(here("data", "plant_images.csv")) |>
 toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2)))
 toxic_part <- append(toxic_part, "none")
 toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
-
-##############  TABLE DATA ##############
-toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
-  mutate(
-    Species = toTitleCase(Species),
-    `Native Status` = toTitleCase(`Native Status`),
-    `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
-    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
-  ) |>
-  select(Species, `Common Name`, Family, Genus, Taxon, Lifeform, `Native Status`,`Start Bloom Month`,`End Bloom Month`)
-
-native_status_list <- unique(toxic_index$`Native Status`)
 
 ##########################################UI################################################
 
@@ -198,7 +198,7 @@ ui <- fluidPage(
                   learn something new, or at least reminds you to touch with caution.
                   <br><br>Happy plant hunting!
                        <br>– Abbey, Karlie, & Kylie")
-                  ),
+                ),
                 accordion_panel(
                   icon = bs_icon("clipboard-data"),
                   title = "Data Citations",
@@ -212,9 +212,9 @@ ui <- fluidPage(
                   Calflora: Information on California plants for education, research and conservation.
                   [web application]. 2019. Berkeley, California: The Calflora Database [a non-profit organization].
                   Available: https://www.calflora.org/ (Accessed: Jan, 30 2025).")
-                  )
                 )
-              ),
+              )
+    ),
     
     ##############  MAP UI ##############
     
@@ -228,19 +228,19 @@ ui <- fluidPage(
                               max = 1,
                               value = 0.5,
                               step = 0.05
-                              ),
+                  ),
                   checkboxGroupInput(
                     inputId = 'toxin_type',
                     label = "Choose toxin type",
                     choices = toxin_type_list
-                    )
-                  ),
+                  )
+                ),
                 mainPanel(
                   textOutput(outputId = "selected_toxin"),
                   leafletOutput(outputId = "map_output")
-                  )
                 )
-              ),
+              )
+    ),
     
     ##############  ELEVATION UI ##############
     
@@ -250,25 +250,19 @@ ui <- fluidPage(
                   sliderInput(
                     inputId = "upper_elevation", # change to between range
                     label = "Choose elevation range", 
-                    min=0,
-                    max=9000,
+                    min=-1000,
+                    max=10000,
                     value=0,
-                    step=1000
+                    step=250
                   )
                 ),
                 
                 mainPanel( 
                   textOutput(outputId = "selected_elevation"),
-                  plotOutput(outputId = "elevation_plot_output"),
-                  HTML("Will more toxic species be lurking on my seaside walk or mountain hike? 
-                  In this figure, select your favorite elevation to see what toxic species can be 
-                  found there. You can even learn the plant types you can expect to see, from grass 
-                  to tree. Bar height represents the number of species, by lifeform category, present 
-                  at a selected elevation. 
-")
+                  plotOutput(outputId = "elevation_plot_output")  
                 )
               )
-            ),
+    ),
     
     ##############  TIME SERIES UI ##############
     
@@ -289,7 +283,7 @@ ui <- fluidPage(
                                  start = "1975-01-01",
                                  end = "2024-12-31",
                                  startview = "year",
-                                 separator = " - "),
+                                 separator = " - ")
                 ),
                 mainPanel("Ratio of toxic to non-toxic plant observations over time",
                           textOutput("native_choice_out"),
@@ -300,8 +294,8 @@ ui <- fluidPage(
     
     ##############  GAME UI ##############
     
-    nav_panel(title = "Game", p("Put your plant intuition to the test!"),
-              titlePanel("Game"),
+    nav_panel(title = "Game",
+              titlePanel("Plant Intuition Game"),
               sidebarLayout(
                 sidebarPanel(
                   selectInput("select_game", 
@@ -315,13 +309,13 @@ ui <- fluidPage(
                   textOutput("select_game"),
                   uiOutput("display_image"),
                   textOutput("guess_message")
-                  )
                 )
-              ),
+              )
+    ),
     
     ############## TABLE UI ##############
     
-    nav_panel(title = "Toxic Plant Index", 
+    nav_panel(title = "Index", 
               titlePanel("Toxic Plant Index"),
               sidebarLayout(
                 sidebarPanel(
@@ -343,7 +337,7 @@ ui <- fluidPage(
                 )
               )
     )
-    )
+  )
 )
 
 ###########################################SERVER###############################################
@@ -351,7 +345,7 @@ ui <- fluidPage(
 #SERVER
 
 server <- function(input, output) {
-
+  
   ##############  MAP SERVER ##############
   
   ## Display selected toxin(s)
@@ -394,17 +388,17 @@ server <- function(input, output) {
   })
   output$map_output <- renderLeaflet({
     if(length(input$toxin_type)>0){
-    leaflet() |>
-      addTiles() |>
-      addRasterImage(int_ratio_raster_reactive(),
-                     colors="YlOrRd",
-                     opacity = input$map_opacity) |>
-      setView(lng = -120.2, lat = 34.5, zoom = 8) |>
-      addLegend(pal = colorNumeric(palette="YlOrRd",
-                                   values(int_ratio_raster_reactive())),
-                      values = values(int_ratio_raster_reactive(), na.rm = T),
-                title = HTML("Intensity Ratio <br> of Toxic to <br> NonToxic Plants")
-      )
+      leaflet() |>
+        addTiles() |>
+        addRasterImage(int_ratio_raster_reactive(),
+                       colors="YlOrRd",
+                       opacity = input$map_opacity) |>
+        setView(lng = -120.2, lat = 34.5, zoom = 8) |>
+        addLegend(pal = colorNumeric(palette="YlOrRd",
+                                     values(int_ratio_raster_reactive())),
+                  values = values(int_ratio_raster_reactive(), na.rm = T),
+                  title = HTML("Intensity Ratio <br> of Toxic to <br> NonToxic Plants")
+        )
     }
     else{
       leaflet() |>
@@ -414,7 +408,7 @@ server <- function(input, output) {
   })
   
   ##############  ELEVATION SERVER  ##############
-    
+  
   elevation_select <- reactive({
     characteristics_df <- characteristics_elevation_clean |> # sum is.na
       mutate(within_elevation = if_else((input$upper_elevation > lower_elevation & input$upper_elevation < upper_elevation), 1, 0)) |>
@@ -429,9 +423,9 @@ server <- function(input, output) {
   output$elevation_plot_output <- renderPlot({
     ggplot(data = elevation_select()) +
       geom_col(aes(x = lifeform_clean, y = count)) +
+      scale_fill_manual(values = c("#576B47")) +
       ylim(0, 10) +
-      scale_y_continuous(n.breaks = 5) +
-      labs(x = "Lifeform", y = "Number of Species", title = "Number of species, by lifeform category") +
+      labs(x = "Lifeform", y = "Number of Species", title = "Number of species per lifeform category") +
       theme_light()
   })
   
@@ -463,7 +457,7 @@ server <- function(input, output) {
                    date_labels = "%Y") +
       theme_light()
   })
-    
+  
   ##############  GAME SERVER ##############
   current_plant <- reactiveVal(NULL)
   guess_message <- reactiveVal("") # initialize empty string
@@ -539,5 +533,5 @@ server <- function(input, output) {
 }
 
 ##########################################################################################
-thematic::thematic_shiny()
+
 shinyApp(ui = ui, server = server)
