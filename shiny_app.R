@@ -237,8 +237,8 @@ ui <- fluidPage(
                   sliderInput(
                     inputId = "upper_elevation", # change to between range
                     label = "Choose elevation range", 
-                    min=-1000,
-                    max=10000,
+                    min=0,
+                    max=9000,
                     value=0,
                     step=1000
                   )
@@ -246,7 +246,13 @@ ui <- fluidPage(
                 
                 mainPanel( 
                   textOutput(outputId = "selected_elevation"),
-                  plotOutput(outputId = "elevation_plot_output")  
+                  plotOutput(outputId = "elevation_plot_output"),
+                  HTML("Will more toxic species be lurking on my seaside walk or mountain hike? 
+                  In this figure, select your favorite elevation to see what toxic species can be 
+                  found there. You can even learn the plant types you can expect to see, from grass 
+                  to tree. Bar height represents the number of species, by lifeform category, present 
+                  at a selected elevation. 
+")
                 )
               )
             ),
@@ -384,10 +390,10 @@ server <- function(input, output) {
   
   output$elevation_plot_output <- renderPlot({
     ggplot(data = elevation_select()) +
-      geom_col(aes(x = lifeform_clean, y = count), fill = "#576B47") +
+      geom_col(aes(x = lifeform_clean, y = count)) +
       ylim(0, 10) +
       scale_y_continuous(n.breaks = 5) +
-      labs(x = "Lifeform", y = "Number of Species", title = "Number of species per lifeform category") +
+      labs(x = "Lifeform", y = "Number of Species", title = "Number of species, by lifeform category") +
       theme_light()
   })
   
@@ -480,5 +486,5 @@ server <- function(input, output) {
 }
 
 ##########################################################################################
-
+thematic::thematic_shiny()
 shinyApp(ui = ui, server = server)
