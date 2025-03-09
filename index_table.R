@@ -22,7 +22,7 @@ library(janitor)
 library(tsibble)
 library(lubridate)
 library(tools)
-library(dplyr)
+library(DT)
 
 
 #########################################THEME#################################################
@@ -135,17 +135,6 @@ time_obs_ts <- time_obs |>
   as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
              index = date)
 
-##############  TABLE DATA ##############
-toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
-  mutate(
-    Species = toTitleCase(Species),
-    `Native Status` = toTitleCase(`Native Status`),
-    `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
-    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
-  ) |>
-  select(Species, `Common Name`, Family, Genus, Taxon, Lifeform, `Native Status`,`Start Bloom Month`,`End Bloom Month`)
-
-native_status_list <- unique(toxic_index$`Native Status`)
 
 ##############  GAME DATA ##############
 
@@ -167,6 +156,18 @@ game_images <- read_csv(here("data", "plant_images.csv")) |>
 toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2)))
 toxic_part <- append(toxic_part, "none")
 toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
+
+##############  TABLE DATA ##############
+toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
+  mutate(
+    Species = toTitleCase(Species),
+    `Native Status` = toTitleCase(`Native Status`),
+    `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
+    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
+  ) |>
+  select(Species, `Common Name`, Genus, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`)
+
+native_status_list <- unique(toxic_index$`Native Status`)
 
 ##########################################UI################################################
 
@@ -250,16 +251,22 @@ ui <- fluidPage(
                   sliderInput(
                     inputId = "upper_elevation", # change to between range
                     label = "Choose elevation range", 
-                    min=-1000,
-                    max=10000,
+                    min=0,
+                    max=9000,
                     value=0,
-                    step=250
+                    step=1000
                   )
                 ),
                 
                 mainPanel( 
                   textOutput(outputId = "selected_elevation"),
-                  plotOutput(outputId = "elevation_plot_output")  
+                  plotOutput(outputId = "elevation_plot_output"),
+                  HTML("Will more toxic species be lurking on my seaside walk or mountain hike? 
+                  In this figure, select your favorite elevation to see what toxic species can be 
+                  found there. You can even learn the plant types you can expect to see, from grass 
+                  to tree. Bar height represents the number of species, by lifeform category, present 
+                  at a selected elevation. 
+")
                 )
               )
     ),
@@ -283,7 +290,7 @@ ui <- fluidPage(
                                  start = "1975-01-01",
                                  end = "2024-12-31",
                                  startview = "year",
-                                 separator = " - ")
+                                 separator = " - "),
                 ),
                 mainPanel("Ratio of toxic to non-toxic plant observations over time",
                           textOutput("native_choice_out"),
@@ -294,8 +301,8 @@ ui <- fluidPage(
     
     ##############  GAME UI ##############
     
-    nav_panel(title = "Game",
-              titlePanel("Plant Intuition Game"),
+    nav_panel(title = "Game", p("Put your plant intuition to the test!"),
+              titlePanel("Game"),
               sidebarLayout(
                 sidebarPanel(
                   selectInput("select_game", 
@@ -315,7 +322,7 @@ ui <- fluidPage(
     
     ############## TABLE UI ##############
     
-    nav_panel(title = "Index", 
+    nav_panel(title = "Toxic Plant Index", 
               titlePanel("Toxic Plant Index"),
               sidebarLayout(
                 sidebarPanel(
@@ -423,9 +430,9 @@ server <- function(input, output) {
   output$elevation_plot_output <- renderPlot({
     ggplot(data = elevation_select()) +
       geom_col(aes(x = lifeform_clean, y = count)) +
-      scale_fill_manual(values = c("#576B47")) +
       ylim(0, 10) +
-      labs(x = "Lifeform", y = "Number of Species", title = "Number of species per lifeform category") +
+      scale_y_continuous(n.breaks = 5) +
+      labs(x = "Lifeform", y = "Number of Species", title = "Number of species, by lifeform category") +
       theme_light()
   })
   
@@ -527,11 +534,26 @@ server <- function(input, output) {
     filtered_data <- unique(filtered_data) |>
       arrange(Species) # order alphabetically
     filtered_data <-  filtered_data[filtered_data$`Native Status` %in% input$native_status, ]
-    filtered_data
+    
+    datatable(
+      filtered_data,
+      extensions = 'Buttons',
+      options = list(
+        autoWidth = TRUE,
+        dom = 'Bfrtip',
+        buttons = c('copy', 'csv', 'print')
+      ),
+      class = 'display cell-border stripe'
+    ) |>
+      formatStyle(
+        'Native Status',  
+        color = styleEqual(
+          c("Native","Rare","Non-Native","Non-Native Invasive"), c("green","#00AFE6","#FF6F61","#D32F2F") 
+        )
+      )
   })
-  
 }
 
 ##########################################################################################
-
+thematic::thematic_shiny()
 shinyApp(ui = ui, server = server)

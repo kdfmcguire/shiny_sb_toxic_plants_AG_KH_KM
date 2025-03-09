@@ -22,6 +22,7 @@ library(janitor)
 library(tsibble)
 library(lubridate)
 library(tools)
+library(DT)
 
 
 #########################################THEME#################################################
@@ -164,7 +165,7 @@ toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) 
     `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
     `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
   ) |>
-  select(Species, `Common Name`, Family, Genus, Taxon, Lifeform, `Native Status`,`Start Bloom Month`,`End Bloom Month`)
+  select(Species, `Common Name`, Genus, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`)
 
 native_status_list <- unique(toxic_index$`Native Status`)
 
@@ -533,7 +534,23 @@ server <- function(input, output) {
     filtered_data <- unique(filtered_data) |>
       arrange(Species) # order alphabetically
     filtered_data <-  filtered_data[filtered_data$`Native Status` %in% input$native_status, ]
-    filtered_data
+
+    datatable(
+      filtered_data,
+      extensions = 'Buttons',
+      options = list(
+        autoWidth = TRUE,
+        dom = 'Bfrtip',
+        buttons = c('copy', 'csv', 'print')
+      ),
+      class = 'display cell-border stripe'
+    ) |>
+      formatStyle(
+        'Native Status',  
+        color = styleEqual(
+          c("Native","Rare","Non-Native","Non-Native Invasive"), c("green","#00AFE6","#FF6F61","#D32F2F") 
+        )
+      )
   })
   
 }
