@@ -57,7 +57,8 @@ sb_county_owin <- as.owin(sb_county_sf)
 toxic_plant_obs <- plant_obs |>
   drop_na(Latitude) |>
   drop_na(Longitude) |>
-  filter(!is.na(`Toxic parts`))
+  filter(!is.na(`Toxic parts`)) |>
+  mutate(`Toxin 1` = replace_na(`Toxin 1`, "other/not specified"))
 #make dataframe into sf, assign WGS84 CRS (based on info from the source, CalFlora)          
 toxic_plant_obs_sf <- st_as_sf(toxic_plant_obs, coords = c("Longitude","Latitude"), crs = "WGS84")
 #transform data to projected coordinate system, NAD83 California state plane zone 5
@@ -85,7 +86,8 @@ sb_county_nontoxic_plant_obs_ppp <- unique(sb_county_nontoxic_plant_obs_ppp)
 #extract input options for Map
 toxin_type_list <- toxic_plant_obs_sf$`Toxin 1` |>
   unique() |>
-  na.omit()
+  na.omit() |>
+  sort()
 
 ##############  ELEVATION DATA ##############
 characteristics_data <- read_csv(here("data", "sb_species_w_characteristics_toxins.csv")) 
@@ -227,15 +229,22 @@ ui <- fluidPage(
                               value = 0.5,
                               step = 0.05
                               ),
-                  checkboxGroupInput(
+                  pickerInput(
                     inputId = 'toxin_type',
                     label = "Choose toxin type",
-                    choices = c(toxin_type_list, "Other/Not Specified")
+                    choices = toxin_type_list,
+                    multiple = TRUE,
+                    options = pickerOptions(actionsBox = TRUE),
                     )
                   ),
                 mainPanel(
                   textOutput(outputId = "selected_toxin"),
-                  leafletOutput(outputId = "map_output")
+                  leafletOutput(outputId = "map_output"),
+                  HTML("Does ricin have you rashin'? Does oxalate have you itchin'?
+                       Explore which areas have the highest relative concentration
+                       of dermally toxic plants, filtered by toxin type. Higher values
+                       indicate that the number of toxic plants observed in an area
+                       was high, compared to the number of nontoxic plants observed.")
                   )
                 )
               ),
@@ -301,7 +310,7 @@ ui <- fluidPage(
     ##############  GAME UI ##############
     
     nav_panel(icon = bs_icon("patch-question-fill"),
-              title = "Game", p("Put your plant intuition to the test!"),
+              title = "Game",
               titlePanel("Game"),
               sidebarLayout(
                 sidebarPanel(
@@ -312,7 +321,8 @@ ui <- fluidPage(
                   actionButton("guess_game", label = "Guess",icon = icon("hand-pointer")),
                   actionButton("new_game", label = "Play Again",icon = icon("leaf"))
                 ),
-                mainPanel( 
+                mainPanel(
+                  "Put your plant intuition to the test!",
                   textOutput("select_game"),
                   uiOutput("display_image"),
                   textOutput("guess_message")
@@ -396,15 +406,20 @@ server <- function(input, output) {
   })
   output$map_output <- renderLeaflet({
     if(length(input$toxin_type)>0){
+      #create reversed Orange palette to use in Leaflet legend
+      orange_palette_rev <- colorNumeric(palette="Oranges",
+                                         domain = values(int_ratio_raster_reactive()),
+                                         reverse = T)
     leaflet() |>
       addTiles() |>
       addRasterImage(int_ratio_raster_reactive(),
-                     colors="YlOrRd",
+                     colors="Oranges",
                      opacity = input$map_opacity) |>
       setView(lng = -120.2, lat = 34.5, zoom = 8) |>
-      addLegend(pal = colorNumeric(palette="YlOrRd",
-                                   values(int_ratio_raster_reactive())),
+      addLegend(pal = orange_palette_rev, #use reversed palette because Leaflet by default flips it
                       values = values(int_ratio_raster_reactive(), na.rm = T),
+                #transform legend order to go from low to high
+                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)),
                 title = HTML("Intensity Ratio <br> of Toxic to <br> NonToxic Plants")
       )
     }
