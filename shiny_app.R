@@ -29,12 +29,11 @@ library(DT)
 
 #THEME
 
-sittp_theme <- bs_theme(bootswatch = "cerulean") |>
-  bs_theme_update(bg = "#FFFFFC", fg = "#576B47", 
+sittp_theme <-
+  bs_theme(bg = "#FFFFFC", fg = "#576B49", 
                   primary = "#353E3D", secondary = "#DFFFC7", success = "#00AFE6", 
-                  info = "#244C24", base_font = font_google("Signika"), heading_font = font_google("Crete Round"), 
-                  
-                  font_scale = NULL, preset = "cerulean")
+                  info = "#244C24", base_font = font_google("Signika"), heading_font = font_google("Crete Round"),
+                  preset = "cerulean")
 
 ##########################################DATA################################################
 
@@ -126,10 +125,6 @@ time_obs <- read_csv(here("data","sb_obs_w_characteristics_toxins.csv"))
   time_obs_ts <- time_obs |>
     clean_names() |>
     select(date, native_status, toxic_parts, taxon, latitude, longitude, duration) |>
-    mutate(native_status = case_when(
-    native_status == "non-native invasive" ~ "non-native",
-    native_status == "rare" ~ "native",
-    TRUE ~ native_status)) |>
     unique() |> 
     mutate(date = ymd(date)) |>
     as_tsibble(key = c(native_status, toxic_parts, taxon, latitude, longitude, duration),
@@ -165,7 +160,7 @@ toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) 
     `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
     `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
   ) |>
-  select(Species, `Common Name`, Genus, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`)
+  select(Genus, Species, `Common Name`, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`)
 
 native_status_list <- unique(toxic_index$`Native Status`)
 
@@ -219,8 +214,8 @@ ui <- fluidPage(
     
     ##############  MAP UI ##############
     
-    nav_panel(title = "Plant Distribution Map", 
-              titlePanel("Plant Distribution Map"),
+    nav_panel(title = "Intensity Map", 
+              titlePanel("Intensity Map"),
               sidebarLayout(
                 sidebarPanel(
                   sliderInput(inputId = "map_opacity",
@@ -233,7 +228,7 @@ ui <- fluidPage(
                   checkboxGroupInput(
                     inputId = 'toxin_type',
                     label = "Choose toxin type",
-                    choices = toxin_type_list
+                    choices = c(toxin_type_list, "Other/Not Specified")
                     )
                   ),
                 mainPanel(
@@ -246,6 +241,7 @@ ui <- fluidPage(
     ##############  ELEVATION UI ##############
     
     nav_panel(title = "Elevation",
+              titlePanel("Elevation"),
               sidebarLayout(
                 sidebarPanel(
                   sliderInput(
@@ -277,11 +273,7 @@ ui <- fluidPage(
               titlePanel("Time Series"),
               sidebarLayout(
                 sidebarPanel(
-                  checkboxGroupInput(inputId = "native_choice_in",
-                                     label = "Native Status", 
-                                     choices = c("Native" = "native", "Non-Native" = "non-native")
-                  ),
-                  selectInput(inputId = "time_scale_choice_in", 
+                  radioButtons(inputId = "time_scale_choice_in", 
                               label = "Select time scale:", 
                               choices = c("Monthly" = "yearmonth", "Quarterly" = "yearquarter", "Yearly" = "year") 
                   ),
@@ -289,12 +281,14 @@ ui <- fluidPage(
                                  label = "Date range:",
                                  start = "1975-01-01",
                                  end = "2024-12-31",
+                                 min = "1975-01-01",
+                                 max = "2024-12-31",
                                  startview = "year",
                                  separator = " - "),
                 ),
-                mainPanel("Ratio of toxic to non-toxic plant observations over time",
-                          textOutput("native_choice_out"),
-                          plotOutput(outputId = "time_plot_output")
+                mainPanel(plotOutput(outputId = "time_plot_output"),
+                          HTML("Explore how many plant oservations have been recorded
+                          over time")
                 )
               )
     ),
@@ -433,36 +427,44 @@ server <- function(input, output) {
       ylim(0, 10) +
       scale_y_continuous(n.breaks = 5) +
       labs(x = "Lifeform", y = "Number of Species", title = "Number of species, by lifeform category") +
-      theme_light()
+      theme_light() +
+      theme(text=element_text(size = 16,family = "Source Sans Pro"),
+            axis.text=element_text(size = 14, family = "Source Sans Pro"),
+            axis.title=element_text(size = 14, family = "Source Sans Pro"))
   })
   
   ##############  TIME SERIES SERVER ##############
   
   time_series_plot_data <- reactive({
     time_obs_ts |> 
-      filter(native_status %in% input$native_choice_in) |>
       index_by(date_selected = ~get(!!input$time_scale_choice_in)(.)) |>
       filter_index(as.character(input$date_range_in[1]) ~ as.character(input$date_range_in[2])) |>
       summarize(toxic_count = sum(!is.na(toxic_parts)),
-                non_toxic_count = sum(is.na(toxic_parts))
+                non_toxic_count = sum(is.na(toxic_parts)),
+                toxic_percent = toxic_count/(toxic_count+non_toxic_count)
       ) |>
-      ungroup()
-  })
-  
-  output$native_choice_out <- renderText({
-    paste("You selected:", paste(input$native_choice_in,
-                                 collapse = ", ")
-    )
+      ungroup() |>
+      pivot_longer(cols = c("toxic_count", "non_toxic_count","toxic_percent"),
+                   names_to = "measurement",
+                   values_to = "value")
   })
   
   output$time_plot_output <- renderPlot({
     ggplot(data = time_series_plot_data()) +
-      geom_line(aes(x=as.Date(date_selected), y=toxic_count/non_toxic_count)) +
+      geom_line(aes(x=date_selected, y=value)) +
+      facet_wrap(.~measurement, scales = "free_y", ncol = 1,
+                 labeller = labeller(measurement = c(toxic_count = "Toxic Plant Observations",
+                                                     non_toxic_count = "Nontoxic Plant Observations",
+                                                     toxic_percent = "Percent Toxic"))) +
       labs(x = "Date",
-           y = "Toxic:NonToxic Plant Observations") +
-      scale_x_date(date_breaks = "5 years", 
-                   date_labels = "%Y") +
-      theme_light()
+           y = "") +
+      theme_light() + 
+      theme(text=element_text(size = 16,family = "Source Sans Pro"),
+              axis.text=element_text(size = 14, family = "Source Sans Pro"),
+              axis.title=element_text(size = 14, family = "Source Sans Pro"),
+              strip.background = element_rect(fill="grey50"),
+              strip.text = element_text(size = 14)) +
+      guides(color="none")
   })
     
   ##############  GAME SERVER ##############
@@ -525,8 +527,8 @@ server <- function(input, output) {
   ##############  TABLE SERVER ##############
   
   indexed_plant <- reactive({
-    # selects subset where the letter input is found at start of the Species string (^)
-    subset(toxic_index, grepl(paste("^", input$letter_input, sep=""), Species, ignore.case = TRUE))
+    # selects subset where the letter input is found at start of the Genus string (^)
+    subset(toxic_index, grepl(paste("^", input$letter_input, sep=""), Genus, ignore.case = TRUE))
   })
   
   output$toxic_table <- renderDT({
