@@ -172,6 +172,17 @@ native_status_list <- unique(toxic_index$`Native Status`)
 
 ui <- fluidPage(
   theme = sittp_theme,
+  tags$head(
+  tags$style(
+    HTML(".shiny-notification{
+    position:fixed;
+    top: calc(50%);
+    right: calc(30%);
+    left: calc(30%);
+         }"
+            )
+        )
+    ),
   page_navbar(
     title = "Should I touch that plant?",
     inverse = TRUE,
@@ -240,6 +251,7 @@ ui <- fluidPage(
                 mainPanel(
                   textOutput(outputId = "selected_toxin"),
                   leafletOutput(outputId = "map_output"),
+                  br(),
                   HTML("Does ricin have you rashin'? Does oxalate have you itchin'?
                        Explore which areas have the highest relative concentration
                        of dermally toxic plants, filtered by toxin type. Higher values
@@ -269,12 +281,12 @@ ui <- fluidPage(
                 mainPanel( 
                   textOutput(outputId = "selected_elevation"),
                   plotOutput(outputId = "elevation_plot_output"),
+                  br(),
                   HTML("Will more toxic species be lurking on my seaside walk or mountain hike? 
                   In this figure, select your favorite elevation to see what toxic species can be 
                   found there. You can even learn the plant types you can expect to see, from grass 
                   to tree. Bar height represents the number of species, by lifeform category, present 
-                  at a selected elevation. 
-")
+                  at a selected elevation.")
                 )
               )
             ),
@@ -300,6 +312,7 @@ ui <- fluidPage(
                                  separator = " - "),
                 ),
                 mainPanel(plotOutput(outputId = "time_plot_output"),
+                          br(),
                           HTML("Explore how many plant observations have been recorded
                           over time, and what percent of those observations were of
                           dermally toxic plants.")
@@ -323,9 +336,11 @@ ui <- fluidPage(
                 ),
                 mainPanel(
                   "Put your plant intuition to the test!",
+                  br(),
+                  br(),
+                  
                   textOutput("select_game"),
                   uiOutput("display_image"),
-                  textOutput("guess_message")
                   )
                 )
               ),
@@ -440,7 +455,7 @@ server <- function(input, output) {
   })
   
   output$selected_elevation <- renderText({
-    paste("You selected:", paste(input$upper_elevation, collapse = ", "))
+    paste("You selected:", paste(input$upper_elevation, " ft", collapse = ", "))
   })
   
   output$elevation_plot_output <- renderPlot({
@@ -514,6 +529,9 @@ server <- function(input, output) {
   
   # sets response message based on user guess
   observeEvent(input$guess_game, {
+    #set default message type for the popup to "warning",
+    #and update it if the result is actually a success
+    guess_message_type = "warning"
     # whole plant is toxic, user does not choose 'none'
     if (current_plant()$toxic_part1 == "whole plant"
         && input$select_game != 'none') {
@@ -522,7 +540,8 @@ server <- function(input, output) {
     # whole plant is toxic, user does chooses 'none'
     else if (current_plant()$toxic_part1 == "whole plant") {
       guess_message(paste("Phew! All parts of ",current_plant()$plant_name," are toxic. You safely admired from afar."))
-    } # user chooses 'none', 1 toxic part
+      guess_message_type = "success"
+      } # user chooses 'none', 1 toxic part
     else if (input$select_game=="none" && is.na(current_plant()$toxic_part2)) {
       guess_message(paste("Oh no! You played it safe by not touching ",current_plant()$plant_name,". Only the ",current_plant()$toxic_part1, " is toxic. You missed out on a magical moment with nature ):"))
     } # user chooses 'none', 2 toxic parts
@@ -539,12 +558,17 @@ server <- function(input, output) {
     } 
     else {
       guess_message(paste("Phew! You touched a safe part of ",current_plant()$plant_name," and had a magical moment with nature (:"))
-    }
+      guess_message_type = "success"
+      }
   })
-  
-  output$guess_message <- renderText({
-    guess_message()  # outputs message to user
-  })
+  observe({ 
+    showNotification( 
+      guess_message(),
+      #type = #react to be success or warning based on guess message,
+      duration = 4
+    ) 
+  }) |> 
+    bindEvent(input$guess_game) 
   
   ##############  TABLE SERVER ##############
   
@@ -576,7 +600,6 @@ server <- function(input, output) {
         )
       )
   })
-  
 }
 
 ##########################################################################################
