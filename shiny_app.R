@@ -176,7 +176,8 @@ ui <- fluidPage(
     
     ##############  INFO PAGE UI  ##############
     
-    nav_panel(title = "Overview",     # overview tab
+    nav_panel(icon = icon("seedling"),
+              title = "Overview",     # overview tab
               accordion(              # creating an accordion format for the overview tab
                 accordion_panel(
                   icon = bs_icon("window-sidebar"),
@@ -214,7 +215,8 @@ ui <- fluidPage(
     
     ##############  MAP UI ##############
     
-    nav_panel(title = "Intensity Map", 
+    nav_panel(icon = icon("map-location-dot"),
+              title = "Intensity Map", 
               titlePanel("Intensity Map"),
               sidebarLayout(
                 sidebarPanel(
@@ -240,7 +242,8 @@ ui <- fluidPage(
     
     ##############  ELEVATION UI ##############
     
-    nav_panel(title = "Elevation",
+    nav_panel(icon = icon("mountain"),
+              title =  "Elevation",
               titlePanel("Elevation"),
               sidebarLayout(
                 sidebarPanel(
@@ -269,7 +272,8 @@ ui <- fluidPage(
     
     ##############  TIME SERIES UI ##############
     
-    nav_panel(title = "Time Series", 
+    nav_panel(icon = bs_icon("calendar-week"),
+              title = "Time Series", 
               titlePanel("Time Series"),
               sidebarLayout(
                 sidebarPanel(
@@ -287,15 +291,17 @@ ui <- fluidPage(
                                  separator = " - "),
                 ),
                 mainPanel(plotOutput(outputId = "time_plot_output"),
-                          HTML("Explore how many plant oservations have been recorded
-                          over time")
+                          HTML("Explore how many plant observations have been recorded
+                          over time, and what percent of those observations were of
+                          dermally toxic plants.")
                 )
               )
     ),
     
     ##############  GAME UI ##############
     
-    nav_panel(title = "Game", p("Put your plant intuition to the test!"),
+    nav_panel(icon = bs_icon("patch-question-fill"),
+              title = "Game", p("Put your plant intuition to the test!"),
               titlePanel("Game"),
               sidebarLayout(
                 sidebarPanel(
@@ -303,7 +309,7 @@ ui <- fluidPage(
                               label = "Which part of the plant is safe to touch?", 
                               choices = toxic_part, 
                               selected = "none"),
-                  actionButton("guess_game", label = "Guess",icon = icon("seedling")),
+                  actionButton("guess_game", label = "Guess",icon = icon("hand-pointer")),
                   actionButton("new_game", label = "Play Again",icon = icon("leaf"))
                 ),
                 mainPanel( 
@@ -316,7 +322,8 @@ ui <- fluidPage(
     
     ############## TABLE UI ##############
     
-    nav_panel(title = "Toxic Plant Index", 
+    nav_panel(icon = icon("table"),
+              title = "Toxic Plant Index", 
               titlePanel("Toxic Plant Index"),
               sidebarLayout(
                 sidebarPanel(
