@@ -90,6 +90,7 @@ toxin_type_list <- toxic_plant_obs_sf$`Toxin 1` |>
   sort()
 
 ##############  ELEVATION DATA ##############
+
 characteristics_data <- read_csv(here("data", "sb_species_w_characteristics_toxins.csv")) 
 
 characteristics_elevation_clean <- characteristics_data |>
@@ -155,6 +156,7 @@ toxic_part <- append(toxic_part, "none")
 toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 
 ##############  TABLE DATA ##############
+
 toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
   mutate(
     Species = toTitleCase(Species),
@@ -180,9 +182,9 @@ ui <- fluidPage(
     right: calc(30%);
     left: calc(30%);
          }"
-            )
-        )
-    ),
+         )
+    )
+  ),
   page_navbar(
     title = "Should I touch that plant?",
     inverse = TRUE,
