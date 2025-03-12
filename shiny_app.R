@@ -162,9 +162,10 @@ toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) 
     Species = toTitleCase(Species),
     `Native Status` = toTitleCase(`Native Status`),
     `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
-    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
+    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)]),
+    `Toxic` = !is.na(`Toxic parts`)
   ) |>
-  select(Genus, Species, `Common Name`, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`)
+  select(Genus, Species, `Common Name`, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`, `Toxic`)
 
 native_status_list <- unique(toxic_index$`Native Status`)
 
@@ -354,6 +355,15 @@ ui <- fluidPage(
               titlePanel("Toxic Plant Index"),
               sidebarLayout(
                 sidebarPanel(
+                  switchInput(
+                    inputId = "plant_type_switch",
+                    label = NULL,
+                    value = FALSE,
+                    onLabel = "Toxic Plants",
+                    onStatus = "danger",
+                    offLabel = "All Plants",
+                    size = "large"
+                    ),
                   checkboxGroupInput(
                     inputId = 'native_status',
                     label = "Choose native status",
@@ -362,9 +372,9 @@ ui <- fluidPage(
                   ),
                   # choose starting letter for species name
                   selectInput(inputId = "letter_input", 
-                              label = "Choose letter",
-                              choices = LETTERS, 
-                              selected = "A")
+                              label = "Jump to genus",
+                              choices = c("All", LETTERS), 
+                              selected = "All")
                 ),
                 mainPanel(
                   textOutput(outputId = "selected_native_status"),
@@ -574,15 +584,24 @@ server <- function(input, output) {
   
   ##############  TABLE SERVER ##############
   
+  toxic_index_filtered <- reactive({
+    toxic_index |>
+      filter(`Toxic` == input$plant_type_switch) |>
+      select(-`Toxic`)      
+  })
+  
   indexed_plant <- reactive({
     # selects subset where the letter input is found at start of the Genus string (^)
-    subset(toxic_index, grepl(paste("^", input$letter_input, sep=""), Genus, ignore.case = TRUE))
+    ifelse(input$letter_input != "All",
+    return(subset(toxic_index_filtered(), grepl(paste("^", input$letter_input, sep=""), Genus, ignore.case = TRUE))),
+    return(toxic_index_filtered())
+    )
   })
   
   output$toxic_table <- renderDT({
     filtered_data <- indexed_plant()
     filtered_data <- unique(filtered_data) |>
-      arrange(Species) # order alphabetically
+      arrange(Genus) # order alphabetically
     filtered_data <-  filtered_data[filtered_data$`Native Status` %in% input$native_status, ]
 
     datatable(
