@@ -92,7 +92,7 @@ characteristics_data <- read_csv(here("data", "sb_species_w_characteristics_toxi
 
 characteristics_elevation_clean <- characteristics_data |>
   janitor::clean_names() |>
-  select(lifeform, lower_elevation, upper_elevation) |>
+  select(lifeform, lower_elevation, upper_elevation, toxic_parts) |>
   cbind(lifeform_clean = NA) |>
   mutate(lifeform = tolower(lifeform))
 
@@ -110,8 +110,14 @@ characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevat
 characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "seaweed")] = "Seaweed"
 characteristics_elevation_clean$lifeform_clean[str_detect(characteristics_elevation_clean$lifeform, "fern")] = "Fern"
 
-characteristics_elevation_clean <- characteristics_elevation_clean |> drop_na() |>
-  mutate(lifeform_clean = as.factor(lifeform_clean))
+characteristics_elevation_clean <- characteristics_elevation_clean |>
+  mutate(lifeform_clean = as.factor(lifeform_clean))|> 
+  mutate(toxic = case_when(
+    is.na(toxic_parts) == TRUE ~ "non-toxic", 
+    is.na(toxic_parts) == FALSE ~ "toxic"
+  )) |>
+  select(!toxic_parts) |>
+  drop_na() 
 
 unique(characteristics_elevation_clean$lifeform)
 
@@ -420,7 +426,7 @@ server <- function(input, output) {
   elevation_select <- reactive({
     characteristics_df <- characteristics_elevation_clean |> # sum is.na
       mutate(within_elevation = if_else((input$upper_elevation > lower_elevation & input$upper_elevation < upper_elevation), 1, 0)) |>
-      group_by(lifeform_clean) |>
+      group_by(lifeform_clean, toxic) |>
       summarize(count = sum(within_elevation))
   })
   
@@ -430,8 +436,13 @@ server <- function(input, output) {
   
   output$elevation_plot_output <- renderPlot({
     ggplot(data = elevation_select()) +
-      geom_col(aes(x = lifeform_clean, y = count)) +
+      geom_col(aes(x = lifeform_clean, y = count, fill = toxic)) +
       ylim(0, 10) +
+      scale_fill_manual(
+        values = c("#576B49","#353E3D"),
+        labels = c("Non-toxic", "Toxic"),
+        name = "Toxicity Group"
+      ) +
       scale_y_continuous(n.breaks = 5) +
       labs(x = "Lifeform", y = "Number of Species", title = "Number of species, by lifeform category") +
       theme_light() +
