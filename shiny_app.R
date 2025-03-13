@@ -1,4 +1,4 @@
-# Shiny Script
+#Shiny Script
 #Abbey Guilliat, Karlie Hayes, Kylie McGuire
 
 ######################################LIBRARIES####################################################
@@ -155,6 +155,7 @@ toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2
 toxic_part <- append(toxic_part, "none")
 toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 
+
 ##############  TABLE DATA ##############
 
 toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
@@ -258,8 +259,8 @@ ui <- fluidPage(
                   HTML("Does ricin have you rashin'? Does oxalate have you itchin'?
                        Explore which areas have the highest relative concentration
                        of dermally toxic plants, filtered by toxin type. Higher values
-                       indicate that the number of toxic plants observed in an area
-                       was high, compared to the number of nontoxic plants observed.")
+                       indicate that the density of toxic plants observed in an area
+                       is high, relative to the density of nontoxic plants observed.")
                   )
                 )
               ),
@@ -319,9 +320,9 @@ ui <- fluidPage(
                           HTML("Explore how many plant observations have been recorded
                           over time, and what percent of those observations were of
                           dermally toxic plants.")
+                          )
                 )
-              )
-    ),
+              ),
     
     ##############  GAME UI ##############
     
@@ -341,7 +342,6 @@ ui <- fluidPage(
                   "Put your plant intuition to the test!",
                   br(),
                   br(),
-                  
                   textOutput("select_game"),
                   uiOutput("display_image"),
                   )
@@ -379,9 +379,9 @@ ui <- fluidPage(
                 mainPanel(
                   textOutput(outputId = "selected_native_status"),
                   DTOutput(outputId = "toxic_table")
+                  )
                 )
               )
-    )
     )
 )
 
