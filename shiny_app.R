@@ -1,4 +1,4 @@
-# Shiny Script
+#Shiny Script
 #Abbey Guilliat, Karlie Hayes, Kylie McGuire
 
 ######################################LIBRARIES####################################################
@@ -57,7 +57,8 @@ sb_county_owin <- as.owin(sb_county_sf)
 toxic_plant_obs <- plant_obs |>
   drop_na(Latitude) |>
   drop_na(Longitude) |>
-  filter(!is.na(`Toxic parts`))
+  filter(!is.na(`Toxic parts`)) |>
+  mutate(`Toxin 1` = replace_na(`Toxin 1`, "other/not specified"))
 #make dataframe into sf, assign WGS84 CRS (based on info from the source, CalFlora)          
 toxic_plant_obs_sf <- st_as_sf(toxic_plant_obs, coords = c("Longitude","Latitude"), crs = "WGS84")
 #transform data to projected coordinate system, NAD83 California state plane zone 5
@@ -85,9 +86,11 @@ sb_county_nontoxic_plant_obs_ppp <- unique(sb_county_nontoxic_plant_obs_ppp)
 #extract input options for Map
 toxin_type_list <- toxic_plant_obs_sf$`Toxin 1` |>
   unique() |>
-  na.omit()
+  na.omit() |>
+  sort()
 
 ##############  ELEVATION DATA ##############
+
 characteristics_data <- read_csv(here("data", "sb_species_w_characteristics_toxins.csv")) 
 
 characteristics_elevation_clean <- characteristics_data |>
@@ -158,15 +161,18 @@ toxic_part <-  na.omit(unique(c(game_images$toxic_part1, game_images$toxic_part2
 toxic_part <- append(toxic_part, "none")
 toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 
+
 ##############  TABLE DATA ##############
+
 toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
   mutate(
     Species = toTitleCase(Species),
     `Native Status` = toTitleCase(`Native Status`),
     `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
-    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)])
+    `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)]),
+    `Toxic` = !is.na(`Toxic parts`)
   ) |>
-  select(Genus, Species, `Common Name`, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`)
+  select(Genus, Species, `Common Name`, Family, Lifeform,`Start Bloom Month`,`End Bloom Month`,`Native Status`, `Toxic`)
 
 native_status_list <- unique(toxic_index$`Native Status`)
 
@@ -176,6 +182,17 @@ native_status_list <- unique(toxic_index$`Native Status`)
 
 ui <- fluidPage(
   theme = sittp_theme,
+  tags$head(
+  tags$style(
+    HTML(".shiny-notification{
+    position:fixed;
+    top: calc(50%);
+    right: calc(30%);
+    left: calc(30%);
+         }"
+         )
+    )
+  ),
   page_navbar(
     title = "Should I touch that plant?",
     inverse = TRUE,
@@ -233,15 +250,23 @@ ui <- fluidPage(
                               value = 0.5,
                               step = 0.05
                               ),
-                  checkboxGroupInput(
+                  pickerInput(
                     inputId = 'toxin_type',
                     label = "Choose toxin type",
-                    choices = c(toxin_type_list, "Other/Not Specified")
+                    choices = toxin_type_list,
+                    multiple = TRUE,
+                    options = pickerOptions(actionsBox = TRUE),
                     )
                   ),
                 mainPanel(
                   textOutput(outputId = "selected_toxin"),
-                  leafletOutput(outputId = "map_output")
+                  leafletOutput(outputId = "map_output"),
+                  br(),
+                  HTML("Does ricin have you rashin'? Does oxalate have you itchin'?
+                       Explore which areas have the highest relative concentration
+                       of dermally toxic plants, filtered by toxin type. Higher values
+                       indicate that the density of toxic plants observed in an area
+                       is high, relative to the density of nontoxic plants observed.")
                   )
                 )
               ),
@@ -266,12 +291,12 @@ ui <- fluidPage(
                 mainPanel( 
                   textOutput(outputId = "selected_elevation"),
                   plotOutput(outputId = "elevation_plot_output"),
+                  br(),
                   HTML("Will more toxic species be lurking on my seaside walk or mountain hike? 
                   In this figure, select your favorite elevation to see what toxic species can be 
                   found there. You can even learn the plant types you can expect to see, from grass 
                   to tree. Bar height represents the number of species, by lifeform category, present 
-                  at a selected elevation. 
-")
+                  at a selected elevation.")
                 )
               )
             ),
@@ -297,17 +322,18 @@ ui <- fluidPage(
                                  separator = " - "),
                 ),
                 mainPanel(plotOutput(outputId = "time_plot_output"),
+                          br(),
                           HTML("Explore how many plant observations have been recorded
                           over time, and what percent of those observations were of
                           dermally toxic plants.")
+                          )
                 )
-              )
-    ),
+              ),
     
     ##############  GAME UI ##############
     
     nav_panel(icon = bs_icon("patch-question-fill"),
-              title = "Game", p("Put your plant intuition to the test!"),
+              title = "Game",
               titlePanel("Game"),
               sidebarLayout(
                 sidebarPanel(
@@ -318,10 +344,12 @@ ui <- fluidPage(
                   actionButton("guess_game", label = "Guess",icon = icon("hand-pointer")),
                   actionButton("new_game", label = "Play Again",icon = icon("leaf"))
                 ),
-                mainPanel( 
+                mainPanel(
+                  "Put your plant intuition to the test!",
+                  br(),
+                  br(),
                   textOutput("select_game"),
                   uiOutput("display_image"),
-                  textOutput("guess_message")
                   )
                 )
               ),
@@ -333,6 +361,15 @@ ui <- fluidPage(
               titlePanel("Toxic Plant Index"),
               sidebarLayout(
                 sidebarPanel(
+                  switchInput(
+                    inputId = "plant_type_switch",
+                    label = NULL,
+                    value = FALSE,
+                    onLabel = "Toxic Plants",
+                    onStatus = "danger",
+                    offLabel = "All Plants",
+                    size = "large"
+                    ),
                   checkboxGroupInput(
                     inputId = 'native_status',
                     label = "Choose native status",
@@ -341,16 +378,16 @@ ui <- fluidPage(
                   ),
                   # choose starting letter for species name
                   selectInput(inputId = "letter_input", 
-                              label = "Choose letter",
-                              choices = LETTERS, 
-                              selected = "A")
+                              label = "Jump to genus",
+                              choices = c("All", LETTERS), 
+                              selected = "All")
                 ),
                 mainPanel(
                   textOutput(outputId = "selected_native_status"),
                   DTOutput(outputId = "toxic_table")
+                  )
                 )
               )
-    )
     )
 )
 
@@ -402,15 +439,20 @@ server <- function(input, output) {
   })
   output$map_output <- renderLeaflet({
     if(length(input$toxin_type)>0){
+      #create reversed Orange palette to use in Leaflet legend
+      orange_palette_rev <- colorNumeric(palette="Oranges",
+                                         domain = values(int_ratio_raster_reactive()),
+                                         reverse = T)
     leaflet() |>
       addTiles() |>
       addRasterImage(int_ratio_raster_reactive(),
-                     colors="YlOrRd",
+                     colors="Oranges",
                      opacity = input$map_opacity) |>
       setView(lng = -120.2, lat = 34.5, zoom = 8) |>
-      addLegend(pal = colorNumeric(palette="YlOrRd",
-                                   values(int_ratio_raster_reactive())),
+      addLegend(pal = orange_palette_rev, #use reversed palette because Leaflet by default flips it
                       values = values(int_ratio_raster_reactive(), na.rm = T),
+                #transform legend order to go from low to high
+                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)),
                 title = HTML("Intensity Ratio <br> of Toxic to <br> NonToxic Plants")
       )
     }
@@ -431,7 +473,7 @@ server <- function(input, output) {
   })
   
   output$selected_elevation <- renderText({
-    paste("You selected:", paste(input$upper_elevation, collapse = ", "))
+    paste("You selected:", paste(input$upper_elevation, " ft", collapse = ", "))
   })
   
   output$elevation_plot_output <- renderPlot({
@@ -510,6 +552,9 @@ server <- function(input, output) {
   
   # sets response message based on user guess
   observeEvent(input$guess_game, {
+    #set default message type for the popup to "warning",
+    #and update it if the result is actually a success
+    guess_message_type = "warning"
     # whole plant is toxic, user does not choose 'none'
     if (current_plant()$toxic_part1 == "whole plant"
         && input$select_game != 'none') {
@@ -518,7 +563,8 @@ server <- function(input, output) {
     # whole plant is toxic, user does chooses 'none'
     else if (current_plant()$toxic_part1 == "whole plant") {
       guess_message(paste("Phew! All parts of ",current_plant()$plant_name," are toxic. You safely admired from afar."))
-    } # user chooses 'none', 1 toxic part
+      guess_message_type = "success"
+      } # user chooses 'none', 1 toxic part
     else if (input$select_game=="none" && is.na(current_plant()$toxic_part2)) {
       guess_message(paste("Oh no! You played it safe by not touching ",current_plant()$plant_name,". Only the ",current_plant()$toxic_part1, " is toxic. You missed out on a magical moment with nature ):"))
     } # user chooses 'none', 2 toxic parts
@@ -535,24 +581,38 @@ server <- function(input, output) {
     } 
     else {
       guess_message(paste("Phew! You touched a safe part of ",current_plant()$plant_name," and had a magical moment with nature (:"))
-    }
+      guess_message_type = "success"
+      }
   })
-  
-  output$guess_message <- renderText({
-    guess_message()  # outputs message to user
-  })
+  observe({ 
+    showNotification( 
+      guess_message(),
+      #type = #react to be success or warning based on guess message,
+      duration = 4
+    ) 
+  }) |> 
+    bindEvent(input$guess_game) 
   
   ##############  TABLE SERVER ##############
   
+  toxic_index_filtered <- reactive({
+    toxic_index |>
+      filter(`Toxic` == input$plant_type_switch) |>
+      select(-`Toxic`)      
+  })
+  
   indexed_plant <- reactive({
     # selects subset where the letter input is found at start of the Genus string (^)
-    subset(toxic_index, grepl(paste("^", input$letter_input, sep=""), Genus, ignore.case = TRUE))
+    ifelse(input$letter_input != "All",
+    return(subset(toxic_index_filtered(), grepl(paste("^", input$letter_input, sep=""), Genus, ignore.case = TRUE))),
+    return(toxic_index_filtered())
+    )
   })
   
   output$toxic_table <- renderDT({
     filtered_data <- indexed_plant()
     filtered_data <- unique(filtered_data) |>
-      arrange(Species) # order alphabetically
+      arrange(Genus) # order alphabetically
     filtered_data <-  filtered_data[filtered_data$`Native Status` %in% input$native_status, ]
 
     datatable(
@@ -572,7 +632,6 @@ server <- function(input, output) {
         )
       )
   })
-  
 }
 
 ##########################################################################################
