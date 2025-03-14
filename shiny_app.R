@@ -167,6 +167,7 @@ toxic_part <- Filter(function(x) x != "whole plant", toxic_part)
 toxic_index <- read_csv(here("data","sb_species_w_characteristics_toxins.csv")) |>
   mutate(
     Species = toTitleCase(Species),
+    Family = str_to_title(Family),
     `Native Status` = toTitleCase(`Native Status`),
     `Start Bloom Month` = ifelse(is.na(`Start Bloom Month`), NA, month.name[as.numeric(`Start Bloom Month`)]),
     `End Bloom Month` = ifelse(is.na(`End Bloom Month`), NA, month.name[as.numeric(`End Bloom Month`)]),
