@@ -267,7 +267,13 @@ ui <- fluidPage(
                        Explore which areas have the highest relative concentration
                        of dermally toxic plants, filtered by toxin type. Higher values
                        indicate that the density of toxic plants observed in an area
-                       is high, relative to the density of nontoxic plants observed.")
+                       is high, relative to the density of nontoxic plants observed.
+                       <br><br>
+                       
+                       <p style='font-size:85%;'> To learn more about this analysis process, 
+                      <a href='https://www.paulamoraga.com/book-spatial/intensity-estimation.html#intensity-ratio'>
+                       check out the chapter on Intensity Estimation</a> in
+                       Spatial Statistics for Data Science: Theory and Practice with R.</p>")
                   )
                 )
               ),
@@ -324,9 +330,10 @@ ui <- fluidPage(
                 ),
                 mainPanel(plotOutput(outputId = "time_plot_output"),
                           br(),
-                          HTML("Explore how many plant observations have been recorded
-                          over time, and what percent of those observations were of
-                          dermally toxic plants.")
+                          HTML("When are people more likely to record plant observations?
+                          And when are more toxic plants observed?
+                          Explore 50 years of Santa Barbara County plant observations,
+                          and see what percent of those observations were of dermally toxic plants.")
                           )
                 )
               ),
